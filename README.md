@@ -26,34 +26,73 @@ A powerful command-line tool and web application that converts 2D videos to imme
 
 ## Installation
 
-### Option 1: Using the setup script (recommended)
-1. Clone or download this repository
-2. Run the setup script (automatically installs uv if needed):
-   ```bash
-   ./setup.sh
-   ```
+### Prerequisites
 
-### Option 2: Manual installation with uv
-1. Install uv if you haven't already:
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-2. Create virtual environment and install dependencies:
-   ```bash
-   uv venv
-   uv pip install -e .
-   ```
+- Python 3.8 or later
+- CUDA-capable GPU (recommended) or CPU
+- FFmpeg for video processing
+- Git
+- curl or wget (for downloading models)
 
-### Option 3: Traditional pip installation
-1. Create virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Quick Setup (Recommended)
+
+Clone the repository and run the setup script:
+
+```bash
+git clone <repository-url> depth-surge-3d
+cd depth-surge-3d
+chmod +x setup.sh
+./setup.sh
+```
+
+The setup script will automatically:
+- Install uv package manager (if not present, falls back to pip)
+- Create a virtual environment
+- Install all Python dependencies
+- Download Depth-Anything-V2 repository
+- Download Depth-Anything-V2-Large model (~1.3GB)
+- Verify system requirements
+
+### Model Management
+
+The project includes flexible model management:
+
+```bash
+# Download specific models
+./download_models.sh large          # Large model (best quality)
+./download_models.sh small          # Small model (fastest)
+./download_models.sh small base     # Multiple models
+./download_models.sh all            # All models
+
+# Check model status
+./download_models.sh                # Shows current status
+
+# Models are automatically downloaded if missing
+python depth_surge_3d.py input.mp4  # Auto-downloads if needed
+```
+
+**Available Models:**
+- **Small** (24.8M params) - Fast processing, lower quality
+- **Base** (97.5M params) - Balanced performance and quality  
+- **Large** (335.3M params) - Best quality (default)
+
+### Manual Installation
+
+If you prefer manual setup:
+
+```bash
+# Using uv (recommended)
+uv sync
+
+# Or using pip
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Download dependencies
+git clone https://github.com/DepthAnything/Depth-Anything-V2.git depth_anything_v2_repo
+./download_models.sh large
+```
 
 ## Usage
 
@@ -160,10 +199,12 @@ python depth_surge_3d.py input_video.mp4 -s 01:30 -e 02:00 -f over_under --resol
 - `-m, --model`: Path to Depth Anything V2 model file
 - `-f, --format`: VR format - 'side_by_side' or 'over_under' (default: side_by_side)
 - `--processing-mode`: Processing mode - 'serial' or 'batch' (default: serial)
-- `--vr-resolution`: Resolution format including wide options (default: auto)
+- `--vr-resolution`: Resolution format including all aspect ratios (default: auto)
   - Square: square-480, square-720, square-1k, square-2k, square-3k, square-4k, square-5k
-  - Wide: wide-2k, wide-4k, ultrawide
+  - 16:9: 16x9-480p, 16x9-720p, 16x9-1080p, 16x9-1440p, 16x9-4k, 16x9-5k, 16x9-8k
+  - Legacy Wide: wide-2k, wide-4k, ultrawide
   - Cinema: cinema-2k, cinema-4k (ultra-wide, recommend over-under)
+  - Custom: custom:WIDTHxHEIGHT (e.g., custom:1920x1080)
 - `-s, --start`: Start time in mm:ss or hh:mm:ss format (e.g., 01:30 or 00:01:30)
 - `-e, --end`: End time in mm:ss or hh:mm:ss format (e.g., 03:45 or 00:03:45)
 - `-b, --baseline`: Stereo baseline distance (default: 0.065 - average human IPD)
@@ -208,6 +249,27 @@ Depth Surge 3D now supports preserving more of your original content with wide a
 
 ### Auto-Detection
 The system automatically detects your content's aspect ratio and recommends the best format and resolution combination.
+
+### Custom Resolutions
+
+You can specify any resolution for your VR output:
+
+**Command Line:**
+```bash
+python depth_surge_3d.py --vr-resolution custom:1920x1080 input.mp4
+python depth_surge_3d.py --vr-resolution custom:2560x1600 input.mp4  # Custom aspect ratio
+```
+
+**Web UI:** Select "Custom" in the VR Resolution dropdown and enter width/height values.
+
+**16:9 Standard Formats:**
+- `16x9-480p` → 854×480 per eye (quick testing)
+- `16x9-720p` → 1280×720 per eye (HD)
+- `16x9-1080p` → 1920×1080 per eye (Full HD)
+- `16x9-1440p` → 2560×1440 per eye (QHD)
+- `16x9-4k` → 3840×2160 per eye (Ultra HD)
+- `16x9-5k` → 5120×2880 per eye (5K)
+- `16x9-8k` → 7680×4320 per eye (8K)
 
 ## Processing Modes
 
