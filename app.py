@@ -35,8 +35,8 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 from depth_surge_3d.core.stereo_projector import create_stereo_projector
 
 # Import our new utility modules
-from src.depth_surge_3d.utils.video_processing import process_video_serial, process_video_batch
-from src.depth_surge_3d.utils.batch_analysis import analyze_batch_directory, create_video_from_batch
+from depth_surge_3d.utils.video_processing import process_video_serial, process_video_batch
+from depth_surge_3d.utils.batch_analysis import analyze_batch_directory, create_video_from_batch
 
 # Global flags and state
 VERBOSE = False
