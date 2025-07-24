@@ -4,7 +4,6 @@ Batch Analysis Utilities
 Extracted from app.py for batch directory analysis and video creation
 """
 
-import cv2
 import json
 import subprocess
 from pathlib import Path
@@ -12,6 +11,15 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from ..core.constants import INTERMEDIATE_DIRS
+
+# Lazy import cv2 to avoid blocking module loading when cv2 is not available
+def _get_cv2():
+    """Lazy import cv2 only when needed."""
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        raise ImportError("opencv-python is required for image processing. Install with: pip install opencv-python")
 
 
 def analyze_batch_directory(batch_path: Path) -> Dict[str, Any]:
@@ -71,6 +79,7 @@ def analyze_batch_directory(batch_path: Path) -> Dict[str, Any]:
             sample_frames = list(frame_path.glob('*.png'))
             if sample_frames:
                 try:
+                    cv2 = _get_cv2()
                     sample_img = cv2.imread(str(sample_frames[0]))
                     if sample_img is not None:
                         h, w = sample_img.shape[:2]

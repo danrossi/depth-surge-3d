@@ -4,11 +4,19 @@ Video Processing Utilities
 Extracted from app.py to keep it under 500 LOC
 """
 
-import cv2
 import numpy as np
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any, List
 from ..core.constants import INTERMEDIATE_DIRS
+
+# Lazy import cv2 to avoid blocking module loading when cv2 is not available
+def _get_cv2():
+    """Lazy import cv2 only when needed."""
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        raise ImportError("opencv-python is required for image processing. Install with: pip install opencv-python")
 
 
 def process_video_serial(
@@ -33,6 +41,9 @@ def process_video_serial(
     directories = {}
     if kwargs.get('keep_intermediates', True):
         directories = _create_intermediate_directories(output_path, **kwargs)
+    
+    # Get cv2 for this function
+    cv2 = _get_cv2()
     
     # Process each frame completely
     for i, frame_file in enumerate(frame_files):
@@ -92,6 +103,9 @@ def process_video_batch(
         directories = _create_intermediate_directories(output_path, **kwargs)
     
     total_frames = len(frame_files)
+    
+    # Get cv2 for this function
+    cv2 = _get_cv2()
     
     # Phase 1: Super sampling (if needed)
     if super_sample_width != 1920 or super_sample_height != 1080:  # Only if different from defaults
@@ -155,6 +169,9 @@ def _process_single_frame_complete(
 ):
     """Process a single frame through the complete pipeline (serial mode)."""
     
+    # Get cv2 for this function
+    cv2 = _get_cv2()
+    
     # Super sampling
     if super_sample_width != original_image.shape[1] or super_sample_height != original_image.shape[0]:
         callback.update_progress(f"Processing frame {frame_idx+1}/{total_frames} - Super sampling...", frame_idx+1, phase="super_sampling")
@@ -199,6 +216,7 @@ def _process_single_frame_complete(
 
 def _process_supersample_frame(projector, frame_file, directories, width, height, **kwargs):
     """Process super sampling for a single frame (batch mode)."""
+    cv2 = _get_cv2()
     frame_name = frame_file.stem
     original_image = cv2.imread(str(frame_file))
     if original_image is None:
@@ -214,6 +232,7 @@ def _process_supersample_frame(projector, frame_file, directories, width, height
 
 def _process_depth_frame(projector, frame_file, directories, **kwargs):
     """Process depth estimation for a single frame (batch mode)."""
+    cv2 = _get_cv2()
     frame_name = frame_file.stem
     
     # Load super sampled frame if it exists, otherwise original
@@ -240,6 +259,7 @@ def _process_depth_frame(projector, frame_file, directories, **kwargs):
 
 def _process_stereo_frame(projector, frame_file, directories, **kwargs):
     """Process stereo generation for a single frame (batch mode)."""
+    cv2 = _get_cv2()
     frame_name = frame_file.stem
     
     # Load image and depth map
@@ -271,6 +291,7 @@ def _process_stereo_frame(projector, frame_file, directories, **kwargs):
 
 def _process_fisheye_frame(projector, frame_file, directories, **kwargs):
     """Process fisheye distortion for a single frame (batch mode)."""
+    cv2 = _get_cv2()
     frame_name = frame_file.stem
     
     # Load stereo frames
@@ -295,6 +316,7 @@ def _process_fisheye_frame(projector, frame_file, directories, **kwargs):
 
 def _process_vr_assembly_frame(projector, frame_file, directories, apply_distortion, **kwargs):
     """Process VR assembly for a single frame (batch mode)."""
+    cv2 = _get_cv2()
     frame_name = frame_file.stem
     
     # Load final stereo frames (distorted if fisheye was applied, otherwise original stereo)

@@ -15,9 +15,17 @@ import sys
 import signal
 from datetime import datetime
 from pathlib import Path
-import cv2
 from threading import Thread
 import shutil
+
+# Lazy import cv2 to avoid blocking when cv2 is not available
+def _get_cv2():
+    """Lazy import cv2 only when needed."""
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        raise ImportError("opencv-python is required for image processing. Install with: pip install opencv-python")
 
 # Import our constants
 from src.depth_surge_3d.core.constants import INTERMEDIATE_DIRS
@@ -123,6 +131,7 @@ def ensure_directories():
 
 def get_video_info(video_path):
     """Extract video information using OpenCV"""
+    cv2 = _get_cv2()
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         return None
@@ -677,11 +686,6 @@ def open_directory():
         return jsonify({'success': False, 'error': str(e)})
 
 # Batch analysis and video creation functions are now in utils modules
-
-@app.route('/')
-def index():
-    """Main page"""
-    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
