@@ -7,6 +7,7 @@ processing steps using the modular utility functions.
 
 import cv2
 import numpy as np
+import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List
 
@@ -349,6 +350,64 @@ class StereoProjector:
         except Exception as e:
             print(f"Error processing image: {e}")
             return None
+    
+    def extract_frames(
+        self,
+        video_path: str,
+        output_dir: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        target_fps: Optional[str] = None,
+        extraction_mode: str = "original"
+    ) -> List[Path]:
+        """
+        Extract frames from video for processing.
+        
+        Args:
+            video_path: Path to input video
+            output_dir: Output directory path
+            start_time: Start time (e.g., "00:30")
+            end_time: End time (e.g., "01:30")
+            target_fps: Target FPS (currently unused, extraction uses original fps)
+            extraction_mode: Extraction mode (currently unused)
+            
+        Returns:
+            List of extracted frame file paths
+        """
+        from ..utils.file_operations import get_video_properties
+        
+        # Get video properties
+        video_props = get_video_properties(video_path)
+        if not video_props:
+            raise ValueError(f"Could not read video properties from {video_path}")
+        
+        # Create frames directory
+        output_path = Path(output_dir)
+        frames_dir = output_path / 'frames'
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Build FFmpeg command for frame extraction
+        cmd = ['ffmpeg', '-y', '-i', video_path]
+        
+        # Add time range if specified
+        if start_time:
+            cmd.extend(['-ss', start_time])
+        if end_time:
+            cmd.extend(['-to', end_time])
+        
+        # Extract frames as PNG
+        output_pattern = str(frames_dir / 'frame_%06d.png')
+        cmd.extend(['-vsync', '0', output_pattern])
+        
+        # Run FFmpeg
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"FFmpeg frame extraction failed: {e.stderr}")
+        
+        # Get list of extracted frames
+        frame_files = sorted(frames_dir.glob('frame_*.png'))
+        return frame_files
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the loaded model."""
