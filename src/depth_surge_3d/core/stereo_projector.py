@@ -509,11 +509,17 @@ class StereoProjector:
         if not vr_frame_files:
             raise ValueError(f"No VR frames found in {vr_frames_dir}")
         
+        # Determine frame rate
+        if target_fps and target_fps != 'original' and str(target_fps) != 'None':
+            fps_value = str(target_fps)
+        else:
+            fps_value = '30'  # Default fallback
+        
         # Build FFmpeg command
         cmd = [
             'ffmpeg', '-y',
-            '-framerate', str(target_fps) if target_fps and target_fps != 'original' else '30',
-            '-i', str(vr_frames_path / '%06d.png'),
+            '-framerate', fps_value,
+            '-i', str(vr_frames_path / 'frame_%06d.png'),
             '-c:v', 'libx264',
             '-pix_fmt', 'yuv420p'
         ]
@@ -532,6 +538,7 @@ class StereoProjector:
         
         # Run FFmpeg
         try:
+            print(f"Running FFmpeg command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
