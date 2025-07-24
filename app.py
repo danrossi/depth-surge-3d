@@ -415,7 +415,7 @@ class StereoProjectorWithProgress:
     def process_video(self, **kwargs):
         """Process video with progress tracking"""
         # Update callback for frame extraction
-        self.callback.update_progress("Extracting and enhancing frames...")
+        self.callback.update_progress("Extracting and enhancing frames...", phase="extraction")
         
         # Get original video fps
         cap = cv2.VideoCapture(str(kwargs['video_path']))
@@ -467,20 +467,20 @@ class StereoProjectorWithProgress:
         # Create numbered output directories that match the processing flow
         output_path = Path(kwargs['output_dir'])
         if kwargs.get('keep_intermediates', True):
-            # Step 1: Original frames (already in 1_frames/ from extraction)
+            # Step 1: Original frames (already extracted)
             
             # Step 2: Super sampled frames (if applicable)
             if super_sample_width != original_width or super_sample_height != original_height:
-                super_sampled_dir = output_path / "2_supersampled_frames"
+                super_sampled_dir = output_path / INTERMEDIATE_DIRS["supersampled"]
                 super_sampled_dir.mkdir(exist_ok=True)
             
             # Step 3: Depth maps
-            depth_dir = output_path / "3_depth_maps"
+            depth_dir = output_path / INTERMEDIATE_DIRS["depth_maps"]
             depth_dir.mkdir(exist_ok=True)
             
             # Step 4: Initial stereo pairs
-            left_dir = output_path / "4_left_frames"
-            right_dir = output_path / "4_right_frames"
+            left_dir = output_path / INTERMEDIATE_DIRS["left_frames"]
+            right_dir = output_path / INTERMEDIATE_DIRS["right_frames"]
             left_dir.mkdir(exist_ok=True)
             right_dir.mkdir(exist_ok=True)
             
@@ -503,7 +503,7 @@ class StereoProjectorWithProgress:
         vr_dir.mkdir(exist_ok=True)
         
         # Start processing phase
-        self.callback.update_progress("Starting frame processing...", 0)
+        self.callback.update_progress("Starting frame processing...", phase="processing")
         
         # Process each frame (with resume support)
         for i, frame_file in enumerate(frame_files):
@@ -518,11 +518,11 @@ class StereoProjectorWithProgress:
                 vr_frame_path = vr_dir / f"{frame_name}.png"
                 if vr_frame_path.exists():
                     # Frame already processed, skip it
-                    self.callback.update_progress(f"Skipping frame {i+1}/{len(frame_files)} - Already processed", i+1)
+                    self.callback.update_progress(f"Skipping frame {i+1}/{len(frame_files)} - Already processed", i+1, phase="extraction")
                     continue
                     
                 # Update progress at start of each frame
-                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Loading...", i+1)
+                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Loading...", i+1, phase="extraction")
                 
                 original_image = cv2.imread(str(frame_file))
                 if original_image is None:
@@ -533,7 +533,7 @@ class StereoProjectorWithProgress:
                 
                 # Apply super sampling if needed
                 if super_sample_width != original_width or super_sample_height != original_height:
-                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Super sampling...", i+1)
+                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Super sampling...", i+1, phase="super_sampling")
                     image = self.projector.apply_super_sampling(original_image, super_sample_width, super_sample_height)
                     
                     # Save super sampled frame if keeping intermediates
@@ -543,7 +543,7 @@ class StereoProjectorWithProgress:
                     image = original_image
                 
                 # Update progress - depth map generation
-                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Generating depth map...", i+1)
+                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Generating depth map...", i+1, phase="depth_estimation")
                 
                 # Generate depth map (on super sampled image if applicable)
                 if super_sample_width != original_width or super_sample_height != original_height:
@@ -555,7 +555,7 @@ class StereoProjectorWithProgress:
                     depth_map = self.projector.generate_depth_map(frame_file)
                 
                 # Update progress - stereo pair creation
-                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Creating stereo pair...", i+1)
+                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Creating stereo pair...", i+1, phase="stereo_generation")
                 
                 # Create stereo pair
                 left_img, right_img = self.projector.create_stereo_pair(
@@ -573,7 +573,7 @@ class StereoProjectorWithProgress:
                 
                 # Apply fisheye distortion if enabled
                 if apply_distortion:
-                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Fisheye projection...", i+1)
+                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Fisheye projection...", i+1, phase="distortion")
                     left_distorted = self.projector.apply_fisheye_distortion(
                         left_img, kwargs.get('fisheye_projection', 'equidistant'), kwargs.get('fisheye_fov', 180)
                     )
@@ -587,7 +587,7 @@ class StereoProjectorWithProgress:
                         cv2.imwrite(str(right_distorted_dir / f"{frame_name}.png"), right_distorted)
                     
                     # Apply fisheye-aware square cropping and scaling directly to target VR eye format
-                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Fisheye square crop & scale...", i+1)
+                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Fisheye square crop & scale...", i+1, phase="vr_assembly")
                     vr_format = kwargs.get('vr_format', 'side_by_side')
                     if vr_format.startswith('side_by_side'):
                         eye_width = vr_output_width // 2
@@ -611,7 +611,7 @@ class StereoProjectorWithProgress:
                         
                 else:
                     # Apply center cropping and VR eye scaling to undistorted frames
-                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Cropping & scaling...", i+1)
+                    self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Cropping & scaling...", i+1, phase="vr_assembly")
                     left_cropped = self.projector.apply_center_crop(left_img, kwargs.get('crop_factor', 0.7))
                     right_cropped = self.projector.apply_center_crop(right_img, kwargs.get('crop_factor', 0.7))
                     
@@ -636,7 +636,7 @@ class StereoProjectorWithProgress:
                         cv2.imwrite(str(right_final_dir / f"{frame_name}.png"), right_final)
                 
                 # Create final VR frame by combining already-scaled eye frames (no additional processing needed)
-                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Creating VR frame...", i+1)
+                self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Creating VR frame...", i+1, phase="vr_assembly")
                 vr_frame = self.projector.create_vr_format(left_final, right_final, kwargs.get('vr_format', 'side_by_side'), apply_crop=False, target_resolution=None)
             
                 # Final frame completion update
@@ -651,7 +651,7 @@ class StereoProjectorWithProgress:
                 continue
         
         # Create final video
-        self.callback.update_progress("Creating final video with audio...", phase="video")
+        self.callback.update_progress("Creating final video with audio...", phase="video_creation")
         self.projector.create_output_video(
             vr_dir, output_path, kwargs['video_path'], kwargs.get('vr_format', 'side_by_side'),
             kwargs.get('start_time'), kwargs.get('end_time'), kwargs.get('preserve_audio', True),
@@ -820,9 +820,9 @@ def detect_resume_settings(output_path):
     }
     
     # Try to detect VR format from directory structure
-    if (output_path / 'vr_frames').exists():
+    if (output_path / INTERMEDIATE_DIRS["vr_frames"]).exists():
         # Check if there are side-by-side or over-under frames
-        vr_files = list((output_path / 'vr_frames').glob('*.png'))
+        vr_files = list((output_path / INTERMEDIATE_DIRS["vr_frames"]).glob('*.png'))
         if vr_files:
             sample_frame = cv2.imread(str(vr_files[0]))
             if sample_frame is not None:
