@@ -596,6 +596,10 @@
                                 <label class="form-check-label" for="keepIntermediates">
                                     Keep Intermediate Files
                                 </label>
+                                <small class="text-muted d-block ms-4">
+                                    <i class="fas fa-exclamation-triangle"></i> May use significant disk space (~10-50GB for long videos)
+                                    <br><i class="fas fa-info-circle"></i> Required for batch processing mode
+                                </small>
                             </div>
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
@@ -851,7 +855,7 @@
                                                 <label class="form-label">Frame Source</label>
                                                 <select class="form-select" id="frameSource">
                                                     <option value="auto">Auto-detect highest stage</option>
-                                                    <option value="vr_frames">Final VR frames (7_vr_frames)</option>
+                                                    <option value="vr_frames">Final VR frames (99_vr_frames)</option>
                                                     <option value="left_right_final">Final stereo pairs (6_*_frames_final)</option>
                                                     <option value="left_right_fisheye">Fisheye frames (5_*_frames_fisheye)</option>
                                                     <option value="left_right_basic">Basic stereo pairs (4_*_frames)</option>
@@ -1550,6 +1554,32 @@
             updateRangeInfo();
         });
         document.getElementById('device').addEventListener('change', updateSystemInfo);
+        
+        // Show warning when batch mode is selected
+        document.getElementById('processingMode').addEventListener('change', function() {
+            const isBatch = this.value === 'batch';
+            const keepIntermediatesCheckbox = document.getElementById('keepIntermediates');
+            const warning = document.getElementById('batchModeWarning');
+            
+            if (isBatch) {
+                // Show warning and ensure keep intermediates is checked
+                if (!warning) {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.id = 'batchModeWarning';
+                    warningDiv.className = 'alert alert-warning mt-2';
+                    warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Batch Mode:</strong> Keep Intermediate Files must be enabled for batch processing to work correctly.';
+                    this.parentNode.appendChild(warningDiv);
+                }
+                keepIntermediatesCheckbox.checked = true;
+                keepIntermediatesCheckbox.disabled = true;
+            } else {
+                // Remove warning and re-enable checkbox
+                if (warning) {
+                    warning.remove();
+                }
+                keepIntermediatesCheckbox.disabled = false;
+            }
+        });
         
         // Toggle fisheye distortion options
         document.getElementById('applyDistortion').addEventListener('change', function() {

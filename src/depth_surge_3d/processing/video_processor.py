@@ -182,7 +182,7 @@ class VideoProcessor:
         for i, frame_file in enumerate(frame_files):
             try:
                 # Update progress
-                progress_tracker.update_serial(i + 1, f"Loading frame {i+1}")
+                progress_tracker.update_progress(f"Loading frame {i+1}", i + 1, phase="extraction")
                 
                 # Load frame
                 image = cv2.imread(str(frame_file))
@@ -217,14 +217,14 @@ class VideoProcessor:
         
         try:
             # Super sampling if needed
-            progress_tracker.update_serial(frame_num, f"Super sampling frame {frame_num}")
+            progress_tracker.update_progress(f"Super sampling frame {frame_num}", frame_num, phase="super_sampling")
             if settings['super_sample'] != 'none':
                 target_width = max(image.shape[1], settings['per_eye_width'] * 2)
                 target_height = max(image.shape[0], settings['per_eye_height'] * 2)
                 image = resize_image(image, target_width, target_height)
             
             # Generate depth map
-            progress_tracker.update_serial(frame_num, f"Generating depth map for frame {frame_num}")
+            progress_tracker.update_progress(f"Generating depth map for frame {frame_num}", frame_num, phase="depth_estimation")
             depth_map = self.depth_estimator.estimate_depth(image)
             depth_map = normalize_depth_map(depth_map)
             
@@ -234,7 +234,7 @@ class VideoProcessor:
                 cv2.imwrite(str(directories['depth_maps'] / f"{frame_name}.png"), depth_vis)
             
             # Create stereo pair
-            progress_tracker.update_serial(frame_num, f"Creating stereo pair for frame {frame_num}")
+            progress_tracker.update_progress(f"Creating stereo pair for frame {frame_num}", frame_num, phase="stereo_generation")
             disparity_map = depth_to_disparity(
                 depth_map, settings['baseline'], settings['focal_length']
             )
@@ -256,7 +256,7 @@ class VideoProcessor:
             
             # Apply distortion if enabled
             if settings['apply_distortion']:
-                progress_tracker.update_serial(frame_num, f"Applying fisheye distortion to frame {frame_num}")
+                progress_tracker.update_progress(f"Applying fisheye distortion to frame {frame_num}", frame_num, phase="distortion")
                 
                 left_distorted = apply_fisheye_distortion(
                     left_img, settings['fisheye_fov'], settings['fisheye_projection']
@@ -273,7 +273,7 @@ class VideoProcessor:
                         cv2.imwrite(str(directories['right_distorted'] / f"{frame_name}.png"), right_distorted)
                 
                 # Apply fisheye-aware cropping
-                progress_tracker.update_serial(frame_num, f"Cropping and scaling frame {frame_num}")
+                progress_tracker.update_progress(f"Cropping and scaling frame {frame_num}", frame_num, phase="vr_assembly")
                 left_cropped = apply_fisheye_square_crop(
                     left_distorted, settings['per_eye_width'], settings['per_eye_height'], 
                     settings['fisheye_crop_factor']
@@ -295,7 +295,7 @@ class VideoProcessor:
                 right_final = right_cropped
             else:
                 # Apply center cropping
-                progress_tracker.update_serial(frame_num, f"Cropping and scaling frame {frame_num}")
+                progress_tracker.update_progress(f"Cropping and scaling frame {frame_num}", frame_num, phase="vr_assembly")
                 left_cropped = apply_center_crop(left_img, settings['crop_factor'])
                 right_cropped = apply_center_crop(right_img, settings['crop_factor'])
                 
@@ -318,7 +318,7 @@ class VideoProcessor:
                     cv2.imwrite(str(directories['right_final'] / f"{frame_name}.png"), right_final)
             
             # Create final VR frame
-            progress_tracker.update_serial(frame_num, f"Creating final VR frame {frame_num}")
+            progress_tracker.update_progress(f"Creating final VR frame {frame_num}", frame_num, phase="vr_assembly")
             vr_frame = create_vr_frame(left_final, right_final, settings['vr_format'])
             
             # Save VR frame
@@ -371,14 +371,18 @@ class VideoProcessor:
             '-i', str(vr_frames_dir / 'frame_%06d.png'),
         ]
         
-        # Apply experimental frame interpolation if enabled
+        # Prepare video filters for interpolation
+        video_filters = []
         if settings.get('experimental_frame_interpolation', False):
             print("⚠️  Applying experimental frame interpolation...")
             print("   This may introduce artifacts, wobbling, or visual distortions.")
             
             # Double the frame rate using minterpolate filter
             target_fps = base_fps * 2
-            video_filters = [f'minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1']
+            video_filters.append(f'minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1')
+        
+        # Add video filters if any
+        if video_filters:
             cmd.extend(['-vf', ','.join(video_filters)])
         
         # Add audio if preserving

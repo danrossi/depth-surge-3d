@@ -19,6 +19,9 @@ import cv2
 from threading import Thread
 import shutil
 
+# Import our constants
+from src.depth_surge_3d.core.constants import INTERMEDIATE_DIRS
+
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 import numpy as np
@@ -482,20 +485,21 @@ class StereoProjectorWithProgress:
             right_dir.mkdir(exist_ok=True)
             
             # Step 5: Fisheye frames (if distortion is applied)
-            if kwargs.get('apply_distortion', True):
-                left_distorted_dir = output_path / "5_left_frames_fisheye"
-                right_distorted_dir = output_path / "5_right_frames_fisheye"
+            apply_distortion = kwargs.get('apply_distortion', True)
+            if apply_distortion:
+                left_distorted_dir = output_path / INTERMEDIATE_DIRS["left_distorted"]
+                right_distorted_dir = output_path / INTERMEDIATE_DIRS["right_distorted"]
                 left_distorted_dir.mkdir(exist_ok=True)
                 right_distorted_dir.mkdir(exist_ok=True)
             
             # Step 6: Final cropped frames
-            left_final_dir = output_path / "6_left_frames_final"
-            right_final_dir = output_path / "6_right_frames_final"
+            left_final_dir = output_path / INTERMEDIATE_DIRS["left_final"]
+            right_final_dir = output_path / INTERMEDIATE_DIRS["right_final"]
             left_final_dir.mkdir(exist_ok=True)
             right_final_dir.mkdir(exist_ok=True)
         
         # Step 7: Final VR frames
-        vr_dir = output_path / "7_vr_frames"
+        vr_dir = output_path / INTERMEDIATE_DIRS["vr_frames"]
         vr_dir.mkdir(exist_ok=True)
         
         # Start processing phase
@@ -568,7 +572,7 @@ class StereoProjectorWithProgress:
                     cv2.imwrite(str(right_dir / f"{frame_name}.png"), right_img)
                 
                 # Apply fisheye distortion if enabled
-                if kwargs.get('apply_distortion', True):
+                if apply_distortion:
                     self.callback.update_progress(f"Processing frame {i+1}/{len(frame_files)} - Fisheye projection...", i+1)
                     left_distorted = self.projector.apply_fisheye_distortion(
                         left_img, kwargs.get('fisheye_projection', 'equidistant'), kwargs.get('fisheye_fov', 180)
@@ -875,16 +879,18 @@ def analyze_batch_directory(batch_path):
     
     # Check for different processing stages
     stages = {
-        '7_vr_frames': 'Final VR frames',
-        '6_left_frames_final': 'Final stereo pairs',
-        '6_right_frames_final': 'Final stereo pairs',
-        '5_left_frames_fisheye': 'Fisheye frames',
-        '5_right_frames_fisheye': 'Fisheye frames',
-        '4_left_frames': 'Basic stereo pairs',
-        '4_right_frames': 'Basic stereo pairs',
-        '3_depth_maps': 'Depth maps',
-        '2_supersampled_frames': 'Super sampled frames',
-        '1_frames': 'Original frames'
+        INTERMEDIATE_DIRS["vr_frames"]: 'Final VR frames',
+        INTERMEDIATE_DIRS["left_final"]: 'Final left frames',
+        INTERMEDIATE_DIRS["right_final"]: 'Final right frames',
+        INTERMEDIATE_DIRS["left_distorted"]: 'Distorted left frames',
+        INTERMEDIATE_DIRS["right_distorted"]: 'Distorted right frames',
+        INTERMEDIATE_DIRS["left_cropped"]: 'Cropped left frames',
+        INTERMEDIATE_DIRS["right_cropped"]: 'Cropped right frames',
+        INTERMEDIATE_DIRS["left_frames"]: 'Basic left frames',
+        INTERMEDIATE_DIRS["right_frames"]: 'Basic right frames',
+        INTERMEDIATE_DIRS["depth_maps"]: 'Depth maps',
+        INTERMEDIATE_DIRS["supersampled"]: 'Super sampled frames',
+        INTERMEDIATE_DIRS["frames"]: 'Original frames'
     }
     
     highest_stage_num = 0
@@ -901,7 +907,7 @@ def analyze_batch_directory(batch_path):
     
     # Detect VR format and resolution from highest stage
     if highest_stage_num >= 6:  # Final frames available
-        sample_frame_dirs = [d for d in ['6_left_frames_final', '6_right_frames_final', '7_vr_frames'] if (batch_path / d).exists()]
+        sample_frame_dirs = [d for d in [INTERMEDIATE_DIRS["left_final"], INTERMEDIATE_DIRS["right_final"], INTERMEDIATE_DIRS["vr_frames"]] if (batch_path / d).exists()]
         for frame_dir in sample_frame_dirs:
             frame_path = batch_path / frame_dir
             sample_frames = list(frame_path.glob('*.png'))
@@ -913,7 +919,7 @@ def analyze_batch_directory(batch_path):
                         analysis['resolution'] = f"{w}x{h}"
                         
                         # Detect format based on aspect ratio
-                        if frame_dir == '7_vr_frames':
+                        if frame_dir == INTERMEDIATE_DIRS["vr_frames"]:
                             if w > h * 1.5:
                                 analysis['vr_format'] = 'side_by_side'
                             elif h > w * 1.5:
@@ -947,7 +953,7 @@ def create_video_from_batch(batch_path, settings):
     # Determine frame directory to use
     if frame_source == 'auto':
         # Auto-detect highest available stage
-        stages = ['7_vr_frames', '6_left_frames_final', '6_right_frames_final']
+        stages = [INTERMEDIATE_DIRS["vr_frames"], INTERMEDIATE_DIRS["left_final"], INTERMEDIATE_DIRS["right_final"]]
         frame_dir = None
         for stage in stages:
             stage_path = batch_path / stage
@@ -957,12 +963,12 @@ def create_video_from_batch(batch_path, settings):
     else:
         # Use specified stage
         stage_mapping = {
-            'vr_frames': '7_vr_frames',
-            'left_right_final': '6_left_frames_final',
-            'left_right_fisheye': '5_left_frames_fisheye',
-            'left_right_basic': '4_left_frames'
+            'vr_frames': INTERMEDIATE_DIRS["vr_frames"],
+            'left_right_final': INTERMEDIATE_DIRS["left_final"],
+            'left_right_fisheye': INTERMEDIATE_DIRS["left_distorted"],
+            'left_right_basic': INTERMEDIATE_DIRS["left_frames"]
         }
-        stage_name = stage_mapping.get(frame_source, '7_vr_frames')
+        stage_name = stage_mapping.get(frame_source, INTERMEDIATE_DIRS["vr_frames"])
         frame_dir = batch_path / stage_name
     
     if not frame_dir or not frame_dir.exists():
