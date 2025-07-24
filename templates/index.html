@@ -640,14 +640,14 @@
                                 <small class="form-text text-muted">Fisheye field of view (75-180 degrees, default: 105)</small>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Crop Factor</label>
+                                <label class="form-label">Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Center crop factor for non-fisheye. 1.0 = no crop, 0.5 = crop to 50% of center. Lower values crop more."></i></label>
                                 <input type="number" class="form-control" id="cropFactor" value="1.0" step="0.05" min="0.5" max="1.0">
                                 <small class="form-text text-muted">Center crop factor to reduce edge artifacts (0.5-1.0, default: 1.0 - no crop)</small>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Controls how much fisheye content to capture. 1.0 = perfect inscribed square, >1.0 extends beyond circle for maximum content."></i></label>
-                                <input type="number" class="form-control" id="fisheyeCropFactor" value="1.0" step="0.05" min="0.8" max="1.5">
-                                <small class="form-text text-muted">Fisheye square crop factor relative to circle (0.8-1.5, default: 1.0 - no crop)</small>
+                                <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye square crop factor. 1.0 = inscribed square, >1.0 = more content (may go outside circle), <1.0 = tighter crop. Typical: 0.7-1.5"></i></label>
+                                <input type="number" class="form-control" id="fisheyeCropFactor" value="1.0" step="0.05" min="0.7" max="1.5">
+                                <small class="form-text text-muted">Fisheye square crop factor relative to circle (0.7-1.5, default: 1.0 = inscribed square)</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Hole Filling Quality <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Advanced uses depth-guided multi-stage filling for better quality but slower processing. Fast uses simple inpainting for speed."></i></label>
@@ -689,73 +689,8 @@
                             <h5><i class="fas fa-spinner fa-spin"></i> Processing Progress</h5>
                         </div>
                         <div class="card-body">
-                            <!-- Overall Progress -->
-                            <div class="progress-section">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span id="progressText">Initializing...</span>
-                                    <span id="progressPercent">0%</span>
-                                </div>
-                                <div class="progress" style="height: 25px;">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                         role="progressbar" style="width: 0%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Sub Progress Bars -->
-                            <div class="progress-section">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <small class="text-muted">Frame Extraction</small>
-                                        <div class="progress sub-progress">
-                                            <div class="progress-bar bg-info" id="extractProgress" style="width: 0%"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <small class="text-muted">Depth Processing</small>
-                                        <div class="progress sub-progress">
-                                            <div class="progress-bar bg-warning" id="depthProgress" style="width: 0%"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <small class="text-muted">Video Assembly</small>
-                                        <div class="progress sub-progress">
-                                            <div class="progress-bar bg-success" id="videoProgress" style="width: 0%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Processing Stats -->
-                            <div class="progress-section">
-                                <div class="row text-center">
-                                    <div class="col-md-3">
-                                        <div class="stat-item">
-                                            <div class="stat-value" id="currentFrame">0</div>
-                                            <div class="stat-label">Current Frame</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="stat-item">
-                                            <div class="stat-value" id="totalFrames">0</div>
-                                            <div class="stat-label">Total Frames</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="stat-item">
-                                            <div class="stat-value" id="processingSpeed">--</div>
-                                            <div class="stat-label">Frames/sec</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="stat-item">
-                                            <div class="stat-value" id="estimatedTime">--</div>
-                                            <div class="stat-label">Est. Time Left</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Current Batch Directory -->
+                            <!-- Progress UI removed -->
+                            <!-- Only show output directory and batch info -->
                             <div class="mb-3" id="currentBatchDirectory" style="display: none;">
                                 <h6><i class="fas fa-folder"></i> Current Batch Directory</h6>
                                 <div class="d-flex justify-content-between align-items-center">

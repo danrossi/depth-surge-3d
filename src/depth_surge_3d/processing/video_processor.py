@@ -229,12 +229,12 @@ class VideoProcessor:
                 target_width = max(image.shape[1], settings['per_eye_width'] * 2)
                 target_height = max(image.shape[0], settings['per_eye_height'] * 2)
                 image = resize_image(image, target_width, target_height)
-            
+
             # Generate depth map
             progress_tracker.update_progress(f"Generating depth map for frame {frame_num}", frame_num, phase="depth_estimation")
             depth_map = self.depth_estimator.estimate_depth(image)
             depth_map = normalize_depth_map(depth_map)
-            
+
             # Save depth map if keeping intermediates
             if settings['keep_intermediates'] and 'depth_maps' in directories:
                 depth_vis = (depth_map * 255).astype('uint8')
@@ -279,15 +279,14 @@ class VideoProcessor:
                     if 'right_distorted' in directories:
                         cv2.imwrite(str(directories['right_distorted'] / f"{frame_name}.png"), right_distorted)
                 
-                # Apply fisheye-aware cropping
-                progress_tracker.update_progress(f"Cropping and scaling frame {frame_num}", frame_num, phase="vr_assembly")
+                # --- FISHEYE CROP FACTOR ---
+                fisheye_crop_factor = float(settings.get('fisheye_crop_factor', 1.0))
+                fisheye_crop_factor = max(0.7, min(1.5, fisheye_crop_factor))  # Clamp for safety
                 left_cropped = apply_fisheye_square_crop(
-                    left_distorted, settings['per_eye_width'], settings['per_eye_height'], 
-                    settings['fisheye_crop_factor']
+                    left_distorted, settings['per_eye_width'], settings['per_eye_height'], fisheye_crop_factor
                 )
                 right_cropped = apply_fisheye_square_crop(
-                    right_distorted, settings['per_eye_width'], settings['per_eye_height'], 
-                    settings['fisheye_crop_factor']
+                    right_distorted, settings['per_eye_width'], settings['per_eye_height'], fisheye_crop_factor
                 )
                 
                 # Save cropped frames if keeping intermediates
@@ -297,14 +296,16 @@ class VideoProcessor:
                     if 'right_cropped' in directories:
                         cv2.imwrite(str(directories['right_cropped'] / f"{frame_name}.png"), right_cropped)
                 
-                # For fisheye, cropped frames are already final size
-                left_final = left_cropped
-                right_final = right_cropped
+                # Always resize to per-eye dimensions (safety)
+                left_final = resize_image(left_cropped, settings['per_eye_width'], settings['per_eye_height'])
+                right_final = resize_image(right_cropped, settings['per_eye_width'], settings['per_eye_height'])
             else:
-                # Apply center cropping
+                # --- CENTER CROP FACTOR ---
+                crop_factor = float(settings.get('crop_factor', 1.0))
+                crop_factor = max(0.5, min(1.0, crop_factor))  # Clamp for safety
                 progress_tracker.update_progress(f"Cropping and scaling frame {frame_num}", frame_num, phase="vr_assembly")
-                left_cropped = apply_center_crop(left_img, settings['crop_factor'])
-                right_cropped = apply_center_crop(right_img, settings['crop_factor'])
+                left_cropped = apply_center_crop(left_img, crop_factor)
+                right_cropped = apply_center_crop(right_img, crop_factor)
                 
                 # Save cropped frames if keeping intermediates
                 if settings['keep_intermediates']:
@@ -313,7 +314,7 @@ class VideoProcessor:
                     if 'right_cropped' in directories:
                         cv2.imwrite(str(directories['right_cropped'] / f"{frame_name}.png"), right_cropped)
                 
-                # Resize to target dimensions
+                # Always resize to per-eye dimensions (safety)
                 left_final = resize_image(left_cropped, settings['per_eye_width'], settings['per_eye_height'])
                 right_final = resize_image(right_cropped, settings['per_eye_width'], settings['per_eye_height'])
             
@@ -323,11 +324,15 @@ class VideoProcessor:
                     cv2.imwrite(str(directories['left_final'] / f"{frame_name}.png"), left_final)
                 if 'right_final' in directories:
                     cv2.imwrite(str(directories['right_final'] / f"{frame_name}.png"), right_final)
-            
+
+            # Debug: print per-eye and output dimensions
+            print(f"[DEBUG] Frame {frame_num}: left_final {left_final.shape}, right_final {right_final.shape}, per_eye {settings['per_eye_width']}x{settings['per_eye_height']}, crop_factor={settings.get('crop_factor')}, fisheye_crop_factor={settings.get('fisheye_crop_factor')}")
+
             # Create final VR frame
-            progress_tracker.update_progress(f"Creating final VR frame {frame_num}", frame_num, phase="vr_assembly")
             vr_frame = create_vr_frame(left_final, right_final, settings['vr_format'])
-            
+            # Debug: print VR frame shape
+            print(f"[DEBUG] Frame {frame_num}: VR frame shape {vr_frame.shape}")
+
             # Save VR frame
             if 'vr_frames' in directories:
                 cv2.imwrite(str(directories['vr_frames'] / f"{frame_name}.png"), vr_frame)
