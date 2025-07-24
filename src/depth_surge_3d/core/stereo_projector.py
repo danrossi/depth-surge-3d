@@ -384,7 +384,7 @@ class StereoProjector:
         
         # Create frames directory
         output_path = Path(output_dir)
-        frames_dir = output_path / '1_frames'
+        frames_dir = output_path / '00_original_frames'
         frames_dir.mkdir(parents=True, exist_ok=True)
         
         # Build FFmpeg command for frame extraction

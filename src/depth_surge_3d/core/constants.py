@@ -120,17 +120,18 @@ MAX_FOV = 180  # degrees
 HOLE_FILL_METHODS = ["fast", "advanced"]
 
 # Directory names for intermediate files
+# Using spaced numbering to ensure consistent ordering regardless of which steps are performed
 INTERMEDIATE_DIRS = {
-    "frames": "1_frames",
-    "supersampled": "2_supersampled_frames",
-    "depth_maps": "3_depth_maps",
-    "left_frames": "4_left_frames",
-    "right_frames": "5_right_frames",
-    "left_distorted": "6_left_distorted",
-    "right_distorted": "7_right_distorted",
-    "left_final": "8_left_final",
-    "right_final": "9_right_final",
-    "vr_frames": "10_vr_frames",
+    "frames": "00_original_frames",
+    "supersampled": "10_supersampled_frames", 
+    "depth_maps": "20_depth_maps",
+    "left_frames": "30_left_frames",
+    "right_frames": "31_right_frames",
+    "left_distorted": "40_left_distorted",
+    "right_distorted": "41_right_distorted", 
+    "left_final": "50_left_final",
+    "right_final": "51_right_final",
+    "vr_frames": "99_vr_frames",  # Always the final step
 }
 
 # Model download URLs
