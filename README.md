@@ -1,38 +1,38 @@
 # Depth Surge 3D
 
-**Transform any 2D video into immersive 3D VR content using cutting-edge AI depth estimation.**
+**Convert 2D videos to 3D VR format using AI depth estimation.**
 
-Depth Surge 3D is a comprehensive command-line tool and web application that converts traditional flat videos into stereoscopic 3D format suitable for VR headsets and 3D displays. Using the state-of-the-art **Depth Anything V2** neural network, it analyzes each frame to predict accurate depth information, then generates realistic left and right eye views that create authentic depth perception.
+Depth Surge 3D is a command-line tool and web application that converts flat videos into stereoscopic 3D format for VR headsets and 3D displays. Using the **Depth Anything V2** neural network, it analyzes each frame to predict depth information, then generates left and right eye views for stereoscopic viewing.
 
 ## How It Works
 
-The conversion process combines advanced computer vision with stereoscopic rendering techniques:
+The conversion process combines computer vision with stereoscopic rendering:
 
-1. **AI Depth Analysis**: Depth Anything V2 processes each video frame to create detailed depth maps, understanding the 3D structure of the scene without requiring specialized camera equipment.
+1. **AI Depth Analysis**: Depth Anything V2 processes each video frame to create depth maps, estimating the 3D structure of the scene without requiring specialized camera equipment.
 
-2. **Stereo Pair Generation**: Using the predicted depth information, the system generates separate left and right eye images by intelligently shifting pixels based on their distance from the viewer - closer objects appear more separated, distant objects less so.
+2. **Stereo Pair Generation**: Using the predicted depth information, the system generates separate left and right eye images by shifting pixels based on their distance from the viewer - closer objects appear more separated, distant objects less so.
 
-3. **VR Optimization**: The stereo pairs are processed through configurable fisheye distortion and projection models to match different VR headset optics, ensuring comfortable viewing and proper depth perception.
+3. **VR Optimization**: The stereo pairs are processed through configurable fisheye distortion and projection models to match different VR headset optics.
 
-4. **Format Adaptation**: Final output can be rendered in standard VR formats (side-by-side or over-under) with flexible resolution options ranging from quick preview quality to high-end 8K for premium headsets.
+4. **Format Adaptation**: Final output can be rendered in standard VR formats (side-by-side or over-under) with resolution options from preview quality to 8K.
 
-The result is smooth, natural-looking 3D video that maintains the original content's motion and timing while adding convincing depth that makes scenes come alive in virtual reality.
+The result is 3D video that maintains the original content's motion and timing while adding depth perception suitable for VR viewing.
 
 ## Key Features
 
-- **Advanced AI Depth Estimation**: Uses Depth-Anything-V2 for state-of-the-art monocular depth prediction
+- **AI Depth Estimation**: Uses Depth-Anything-V2 for monocular depth prediction
 - **Multiple VR Formats**: Supports side-by-side and over-under stereoscopic formats
 - **Flexible Resolutions**: Square (VR-optimized), 16:9 (standard), and custom resolutions
-- **Fisheye Distortion**: Multiple projection models for authentic VR experience
-- **Smart Processing**: Auto-detection of optimal settings based on source content
+- **Fisheye Distortion**: Multiple projection models for VR headset compatibility
+- **Auto-detection**: Optimal settings based on source content aspect ratio
 - **Batch & Serial Modes**: Choose between frame-by-frame or task-batched processing
-- **Resume Capability**: Automatically save settings and resume interrupted processing
+- **Resume Capability**: Save settings and resume interrupted processing
 - **Audio Preservation**: Maintains original audio synchronization
 - **Progress Tracking**: Real-time progress with ETA estimates
-- **Wide Format Support**: Optimized for cinema, ultra-wide, and standard aspect ratios
-- **GPU Acceleration**: CUDA support for faster processing on compatible hardware
-- **Web Interface**: User-friendly browser-based interface alongside command-line tools
-- **Intermediate Files**: Optional saving of depth maps and processing stages for analysis
+- **Wide Format Support**: Cinema, ultra-wide, and standard aspect ratios
+- **GPU Acceleration**: CUDA support for faster processing
+- **Web Interface**: Browser-based interface alongside command-line tools
+- **Intermediate Files**: Optional saving of depth maps and processing stages
 
 ## Requirements
 
@@ -519,25 +519,25 @@ This project builds upon the excellent **Depth-Anything-V2** model:
 
 ### Processing Pipeline
 
-The conversion process follows a sophisticated multi-stage pipeline designed for quality and VR compatibility:
+The conversion process follows a multi-stage pipeline:
 
-1. **Video Preprocessing**: FFmpeg extracts frames and optionally enhances resolution and frame rate for smoother VR playback
-2. **AI Depth Analysis**: Depth Anything V2 neural network analyzes each frame to generate precise depth maps showing distance of every pixel
-3. **Disparity Conversion**: Depth information is converted to horizontal disparity values using configurable stereo camera parameters
-4. **Stereo Image Generation**: Both left and right eye images are created by intelligently shifting pixels based on their depth - creating the illusion that closer objects "pop out" and distant objects recede
-5. **VR Lens Simulation**: Optional fisheye distortion and projection models simulate different VR headset optics for natural viewing
-6. **Format Assembly**: Stereo pairs are combined into standard VR formats (side-by-side or over-under) suitable for VR players and headsets
-7. **Audio Integration**: Original audio is precisely synchronized with the converted video to maintain perfect lip-sync and timing
+1. **Video Preprocessing**: FFmpeg extracts frames and optionally enhances resolution and frame rate
+2. **AI Depth Analysis**: Depth Anything V2 neural network analyzes each frame to generate depth maps showing distance of every pixel
+3. **Disparity Conversion**: Depth information is converted to horizontal disparity values using stereo camera parameters
+4. **Stereo Image Generation**: Both left and right eye images are created by shifting pixels based on their depth - closer objects appear more separated, distant objects less so
+5. **VR Lens Simulation**: Optional fisheye distortion and projection models simulate different VR headset optics
+6. **Format Assembly**: Stereo pairs are combined into standard VR formats (side-by-side or over-under)
+7. **Audio Integration**: Original audio is synchronized with the converted video to maintain lip-sync
 
 ### Parameters
 
 - **Baseline**: Distance between virtual left and right cameras (default: 0.065m - average human IPD)
 - **Focal Length**: Virtual camera focal length. Affects the depth perception scale
-- **Projection**: Fisheye projection model (default: stereographic for better quality)
-- **Field of View**: Fisheye FOV in degrees (default: 105° for natural viewing)
-- **Crop Factor**: Center crop amount (default: 1.0 - no crop to preserve content)
-- **Target FPS**: Frame interpolation target (default 60fps for smooth VR)
-- **Resolution**: Minimum output resolution with intelligent upscaling
+- **Projection**: Fisheye projection model (default: stereographic)
+- **Field of View**: Fisheye FOV in degrees (default: 105°)
+- **Crop Factor**: Center crop amount (default: 1.0 - no crop)
+- **Target FPS**: Frame interpolation target (default 60fps)
+- **Resolution**: Minimum output resolution with upscaling
 
 ### Video Enhancement Features
 
