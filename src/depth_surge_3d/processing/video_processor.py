@@ -334,14 +334,31 @@ class VideoProcessor:
             settings['processing_mode']
         )
         
+        # Add suffix for experimental features
+        if settings.get('experimental_frame_interpolation', False):
+            name_parts = output_filename.split('.')
+            name_parts[0] += '_interpolated'
+            output_filename = '.'.join(name_parts)
+        
         output_path = output_dir / output_filename
         
         # Build FFmpeg command
+        base_fps = settings.get('target_fps', 30)
         cmd = [
             'ffmpeg', '-y',
-            '-framerate', str(settings.get('target_fps', 30)),
+            '-framerate', str(base_fps),
             '-i', str(vr_frames_dir / 'frame_%06d.png'),
         ]
+        
+        # Apply experimental frame interpolation if enabled
+        if settings.get('experimental_frame_interpolation', False):
+            print("⚠️  Applying experimental frame interpolation...")
+            print("   This may introduce artifacts, wobbling, or visual distortions.")
+            
+            # Double the frame rate using minterpolate filter
+            target_fps = base_fps * 2
+            video_filters = [f'minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1']
+            cmd.extend(['-vf', ','.join(video_filters)])
         
         # Add audio if preserving
         if settings.get('preserve_audio', True):
@@ -359,7 +376,12 @@ class VideoProcessor:
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"FFmpeg error: {result.stderr}")
+                if settings.get('experimental_frame_interpolation', False):
+                    print("Note: Frame interpolation may have failed. Try without --experimental-frame-interpolation")
                 return False
+            
+            if settings.get('experimental_frame_interpolation', False):
+                print("⚠️  Frame interpolation completed. Review output carefully for artifacts.")
             
             return True
             

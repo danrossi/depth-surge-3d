@@ -42,6 +42,7 @@ DEFAULT_SETTINGS = {
     "keep_intermediates": True,
     "apply_distortion": True,
     "output_dir": "./output",  # Add missing output_dir
+    "experimental_frame_interpolation": False,  # Experimental feature with quality warnings
 }
 
 # VR resolution configurations (per eye)

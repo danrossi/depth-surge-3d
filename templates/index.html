@@ -423,8 +423,8 @@
                                 <select class="form-select" id="vrResolution">
                                     <option value="auto" selected>Auto (Match Source Quality & Aspect)</option>
                                     <optgroup label="Square Formats (VR Optimized)">
-                                        <option value="square-480">Square 480 (480×480 per eye - Quick Test)</option>
-                                        <option value="square-720">Square 720 (720×720 per eye - Fast Test)</option>
+                                                                        <option value="square-480">Square 480 (480×480 per eye - Quick Test Only ⚠️)</option>
+                                <option value="square-720">Square 720 (720×720 per eye - Preview Quality ⚠️)</option>
                                         <option value="square-1k">Square 1K (1080×1080 per eye)</option>
                                         <option value="square-2k">Square 2K (1536×1536 per eye)</option>
                                         <option value="square-3k">Square 3K (1920×1920 per eye)</option>
@@ -432,8 +432,8 @@
                                         <option value="square-5k">Square 5K (2560×2560 per eye)</option>
                                     </optgroup>
                                     <optgroup label="16:9 Formats (Standard Wide)">
-                                        <option value="16x9-480p">16:9 480p (854×480 per eye)</option>
-                                        <option value="16x9-720p">16:9 720p (1280×720 per eye)</option>
+                                                                        <option value="16x9-480p">16:9 480p (854×480 per eye - Quick Test Only ⚠️)</option>
+                                <option value="16x9-720p">16:9 720p (1280×720 per eye - Preview Quality ⚠️)</option>
                                         <option value="16x9-1080p">16:9 1080p (1920×1080 per eye)</option>
                                         <option value="16x9-1440p">16:9 1440p (2560×1440 per eye)</option>
                                         <option value="16x9-4k">16:9 4K (3840×2160 per eye)</option>
@@ -584,6 +584,33 @@
                                     <option value="advanced">Advanced (Multi-Stage + Depth Guidance)</option>
                                 </select>
                                 <small class="form-text text-muted">Balance between processing speed and stereo quality</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Experimental Features Warning -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Experimental Features</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
+                                        <label class="form-check-label" for="experimentalFrameInterpolation">
+                                            <strong>Frame Interpolation (Double FPS)</strong>
+                                        </label>
+                                    </div>
+                                    <div class="alert alert-warning mt-2 mb-0" role="alert">
+                                        <small>
+                                            <i class="fas fa-exclamation-circle"></i> 
+                                            <strong>WARNING:</strong> This experimental feature doubles the frame rate using motion interpolation 
+                                            but may produce artifacts, wobbling, or visual distortions. Results can be unpredictable and 
+                                            are recommended for artistic experimentation only, not for standard VR viewing.
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1098,7 +1125,8 @@
                 fisheye_fov: parseFloat(document.getElementById('fisheyeFov').value),
                 crop_factor: document.getElementById('cropFactor') ? parseFloat(document.getElementById('cropFactor').value) : 0.7,
                 fisheye_crop_factor: parseFloat(document.getElementById('fisheyeCropFactor').value),
-                hole_fill_quality: document.getElementById('holeFillQuality').value
+                hole_fill_quality: document.getElementById('holeFillQuality').value,
+                experimental_frame_interpolation: document.getElementById('experimentalFrameInterpolation').checked
             };
             
             fetch('/process', {
@@ -1637,7 +1665,10 @@
                 fisheyeFov: document.getElementById('fisheyeFov').value,
                 cropFactor: document.getElementById('cropFactor').value,
                 fisheyeCropFactor: document.getElementById('fisheyeCropFactor').value,
-                holeFillQuality: document.getElementById('holeFillQuality').value
+                holeFillQuality: document.getElementById('holeFillQuality').value,
+                
+                // Experimental features
+                experimentalFrameInterpolation: document.getElementById('experimentalFrameInterpolation').checked
             };
             
             localStorage.setItem('stereoProjectorSettings', JSON.stringify(settings));
@@ -1720,7 +1751,8 @@
             const settingsElements = [
                 'startTime', 'endTime', 'vrFormat', 'vrResolution', 'baseline', 'focalLength',
                 'resolution', 'targetFps', 'superSample', 'device', 'processingMode', 'preserveAudio', 'keepIntermediates',
-                'applyDistortion', 'fisheyeProjection', 'fisheyeFov', 'cropFactor', 'fisheyeCropFactor', 'holeFillQuality'
+                'applyDistortion', 'fisheyeProjection', 'fisheyeFov', 'cropFactor', 'fisheyeCropFactor', 'holeFillQuality',
+                'experimentalFrameInterpolation'
             ];
             
             settingsElements.forEach(id => {

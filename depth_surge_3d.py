@@ -131,6 +131,10 @@ Examples:
     parser.add_argument('--target-fps', type=int,
                        help='Target output FPS (default: match source)')
     
+    # Experimental features
+    parser.add_argument('--experimental-frame-interpolation', action='store_true',
+                       help='EXPERIMENTAL: Double FPS using motion interpolation. WARNING: May produce artifacts, wobbling, or poor quality. Recommended for artistic experimentation only.')
+    
     # Information and debugging
     parser.add_argument('--list-resolutions', action='store_true',
                        help='List all available VR resolution options')
@@ -294,6 +298,13 @@ def main():
         print(f"Format: {args.format}")
         print(f"Resolution: {args.vr_resolution}")
         
+        # Show warning for experimental features
+        if args.experimental_frame_interpolation:
+            print("⚠️  WARNING: Experimental frame interpolation enabled!")
+            print("   This feature may produce artifacts, wobbling, or poor quality.")
+            print("   Recommended for artistic experimentation only.")
+            print()
+
         success = projector.process_video(
             video_path=args.input_video,
             output_dir=args.output_dir,
@@ -312,7 +323,8 @@ def main():
             hole_fill_quality=args.hole_fill_quality,
             preserve_audio=not args.no_audio,
             keep_intermediates=not args.no_intermediates,
-            target_fps=args.target_fps
+            target_fps=args.target_fps,
+            experimental_frame_interpolation=args.experimental_frame_interpolation
         )
         
         if success:

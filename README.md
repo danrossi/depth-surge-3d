@@ -444,7 +444,7 @@ Run `./test.sh` to verify your installation:
 
 ### Automatic Settings Recording
 
-Every processing job automatically creates a `[batchname].settings.json` file in the output directory containing:
+Every processing job automatically creates a `[batchname]-settings.json` file in the output directory containing:
 
 - **Complete processing parameters**: All settings used for the conversion
 - **Video metadata**: Source video properties and technical details  
@@ -553,12 +553,28 @@ The conversion process follows a multi-stage pipeline:
 - Upscaling from 720p to 1080p adds ~20% processing time
 - Typical processing: ~2-4 seconds per output frame on modern GPU (including enhancement)
 
-## Limitations
+## Quality Expectations & Limitations
 
-- Works best with scenes containing varied depth information
-- May struggle with mirrors, glass, or very dark scenes
-- Generated stereo effect is approximate, not true stereo capture
-- Processing time can be significant for long/high-resolution videos
+### When It Works Well
+- Videos with clear depth variation (landscapes, interiors with furniture, people in scenes)
+- Good lighting conditions with visible detail
+- Source resolution 1080p or higher for best results
+- Content shot with steady camera movement
+
+### Known Limitations
+- **AI depth estimation**: Generated stereo effect is approximate, not true stereo capture
+- **Challenging scenes**: May produce poor results with mirrors, glass, water reflections, or very dark scenes
+- **Monochrome/low contrast**: Scenes with little visual variation provide insufficient depth cues
+- **Fast motion**: Rapid camera movements or quick object motion may cause artifacts
+- **Processing time**: Can be significant for long/high-resolution videos (2-4 seconds per output frame)
+
+### Resolution Recommendations
+- **Low resolutions** (480p, 720p): Primarily for quick testing and preview - expect reduced quality
+- **1080p+**: Recommended minimum for acceptable VR viewing quality
+- **4K+**: Best results for high-end VR headsets
+- **Ultra-low source material**: Results will be limited by source quality regardless of output resolution
+
+**Note**: This tool converts monocular video to pseudo-stereo using AI depth estimation. While results can be compelling for many types of content, they will never match the quality of content shot with actual stereo cameras or specialized VR equipment.
 
 ## License
 
