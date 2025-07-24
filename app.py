@@ -31,23 +31,57 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from depth_surge_3d.core.stereo_projector import create_stereo_projector
 
-# Global verbose flag
+# Global flags and state
 VERBOSE = False
+SHUTDOWN_FLAG = False
+ACTIVE_PROCESSES = set()
 
 def vprint(*args, **kwargs):
     """Print only if verbose mode is enabled"""
     if VERBOSE:
         print(*args, **kwargs)
 
+def cleanup_processes():
+    """Clean up any active processing threads or subprocesses"""
+    global ACTIVE_PROCESSES, SHUTDOWN_FLAG
+    
+    SHUTDOWN_FLAG = True
+    vprint("🛑 Cleaning up active processes...")
+    
+    # Kill any ffmpeg processes related to this app
+    try:
+        subprocess.run(['pkill', '-f', 'ffmpeg.*depth-surge'], check=False, capture_output=True)
+    except:
+        pass
+    
+    # Clean up any tracked processes
+    for proc in list(ACTIVE_PROCESSES):
+        try:
+            if hasattr(proc, 'terminate'):
+                proc.terminate()
+            elif hasattr(proc, 'kill'):
+                proc.kill()
+        except:
+            pass
+    
+    ACTIVE_PROCESSES.clear()
+    vprint("✅ Process cleanup completed")
+
 def signal_handler(signum, frame):
-    """Handle termination signals by stopping active processing"""
+    """Handle shutdown signals"""
     global current_processing
+    print(f"\n🛑 Received signal {signum}, shutting down gracefully...")
+    
+    # Stop any active processing
     if current_processing['active']:
-        print("\nTermination signal received. Stopping active processing...")
+        print("   Stopping active video processing...")
         current_processing['stop_requested'] = True
         # Wait a moment for cleanup
         if current_processing['thread'] and current_processing['thread'].is_alive():
             current_processing['thread'].join(timeout=5)
+    
+    # Clean up all processes
+    cleanup_processes()
     sys.exit(0)
 
 app = Flask(__name__)
@@ -55,6 +89,13 @@ app.config['SECRET_KEY'] = 'depth-surge-3d-secret'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'output'
 socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
+
+@app.teardown_appcontext
+def cleanup_on_teardown(error):
+    """Clean up processes when Flask shuts down"""
+    if error:
+        vprint(f"App teardown due to error: {error}")
+    cleanup_processes()
 
 # Global variables for processing state
 current_processing = {
@@ -1073,6 +1114,10 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, signal_handler)
     
     import torch  # Import here to avoid issues during startup
-    print("Starting Depth Surge 3D Web UI...")
-    print(f"Navigate to http://localhost:{args.port}")
+    
+    # Only print startup message if not already printed by run_ui.sh
+    if not os.environ.get('DEPTH_SURGE_UI_SCRIPT'):
+        print("Starting Depth Surge 3D Web UI...")
+        print(f"Navigate to http://localhost:{args.port}")
+    
     socketio.run(app, host=args.host, port=args.port, debug=args.verbose)
