@@ -78,21 +78,98 @@ python depth_surge_3d.py input.mp4  # Auto-downloads if needed
 
 ### Manual Installation
 
-If you prefer manual setup:
+If you prefer manual setup or if the automatic setup fails:
+
+#### Step 1: System Dependencies
+
+**FFmpeg** (required for video processing):
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install ffmpeg
+
+# macOS (with Homebrew)
+brew install ffmpeg
+
+# Windows (with Chocolatey)
+choco install ffmpeg
+
+# Or download from: https://ffmpeg.org/download.html
+```
+
+**Python 3.8+** and **Git**:
+```bash
+# Ubuntu/Debian
+sudo apt install python3 python3-venv git
+
+# macOS (with Homebrew)
+brew install python3 git
+
+# Windows: Download from python.org and git-scm.com
+```
+
+#### Step 2: Python Environment
 
 ```bash
-# Using uv (recommended)
-uv sync
+# Clone the repository
+git clone <repository-url> depth-surge-3d
+cd depth-surge-3d
 
-# Or using pip
-python -m venv venv
+# Create virtual environment
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
 
-# Download dependencies
-git clone https://github.com/DepthAnything/Depth-Anything-V2.git depth_anything_v2_repo
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+#### Step 3: Download Depth-Anything-V2
+
+**Option A: Automatic download (recommended)**
+```bash
 ./download_models.sh large
 ```
+
+**Option B: Manual download**
+```bash
+# Clone the repository
+git clone https://github.com/DepthAnything/Depth-Anything-V2.git depth_anything_v2_repo
+
+# Create models directory
+mkdir -p models/Depth-Anything-V2-Large
+
+# Download the model (choose one):
+# Large model (1.3GB) - best quality
+wget https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth \
+     -O models/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth
+
+# OR Base model (390MB) - balanced
+mkdir -p models/Depth-Anything-V2-Base
+wget https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/depth_anything_v2_vitb.pth \
+     -O models/Depth-Anything-V2-Base/depth_anything_v2_vitb.pth
+
+# OR Small model (98MB) - fastest
+mkdir -p models/Depth-Anything-V2-Small  
+wget https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/depth_anything_v2_vits.pth \
+     -O models/Depth-Anything-V2-Small/depth_anything_v2_vits.pth
+```
+
+#### Step 4: Verify Installation
+
+```bash
+# Test the installation
+python depth_surge_3d.py --help
+
+# Check model availability
+python depth_surge_3d.py --model-info
+
+# List supported resolutions
+python depth_surge_3d.py --list-resolutions
+```
+
+**Troubleshooting Manual Setup:**
+- If `wget` is not available, use `curl -L -o <output> <url>` instead
+- On Windows, use PowerShell or download files manually from the URLs
+- Ensure all dependencies are in your PATH before running
 
 ## Usage
 
@@ -103,14 +180,10 @@ git clone https://github.com/DepthAnything/Depth-Anything-V2.git depth_anything_
 uv run python depth_surge_3d.py input_video.mp4
 
 # Or activate virtual environment first
-source .venv/bin/activate  # for uv
-# source venv/bin/activate  # for traditional venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Then run the script
 python depth_surge_3d.py input_video.mp4
-
-# Or use the installed command (if installed with -e flag)
-stereo-projector input_video.mp4
 ```
 
 ### Web UI (Recommended)

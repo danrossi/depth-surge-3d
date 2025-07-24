@@ -206,8 +206,13 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
-# External repositories (cloned dependencies)
+# External repositories and dependencies (auto-downloaded)
 depth_anything_v2_repo/
+depth_anything_v2/
+Depth-Anything-V2/
+
+# Legacy files
+depth_surge_3d_legacy.py
 
 # Depth Surge 3D specific
 simple_test_data/
