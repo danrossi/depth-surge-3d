@@ -9,12 +9,14 @@ import cv2
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import time
 
 from ..models.depth_estimator import DepthEstimator
 from ..utils.progress import create_progress_tracker
 from ..utils.file_operations import (
     create_output_directories, get_frame_files, calculate_frame_range,
-    generate_output_filename, verify_ffmpeg_installation
+    generate_output_filename, verify_ffmpeg_installation,
+    save_processing_settings, update_processing_status
 )
 from ..utils.image_processing import (
     resize_image, normalize_depth_map, depth_to_disparity,
@@ -49,16 +51,30 @@ class VideoProcessor:
         Returns:
             True if processing completed successfully
         """
+        settings_file = None
+        
         try:
             output_path = Path(output_dir)
             
             # Create output directories
             directories = create_output_directories(output_path, settings['keep_intermediates'])
             
+            # Generate batch name from video file and current time
+            batch_name = f"{Path(video_path).stem}_{int(time.time())}"
+            
+            # Save processing settings at the start
+            settings_file = save_processing_settings(
+                output_path, batch_name, settings, video_properties, video_path
+            )
+            
             # Extract frames
             frame_files = self._extract_frames(video_path, directories, video_properties, settings)
             if not frame_files:
                 print("Error: No frames extracted from video")
+                if settings_file:
+                    update_processing_status(settings_file, "failed", {
+                        "error": "No frames extracted from video"
+                    })
                 return False
             
             print(f"Processing {len(frame_files)} frames in serial mode...")
@@ -72,6 +88,10 @@ class VideoProcessor:
             )
             
             if not success:
+                if settings_file:
+                    update_processing_status(settings_file, "failed", {
+                        "error": "Frame processing failed"
+                    })
                 return False
             
             # Create final video
@@ -84,11 +104,31 @@ class VideoProcessor:
             
             if success:
                 print(f"Processing complete. Output saved to: {output_path}")
+                # Update settings file with completion status
+                if settings_file:
+                    update_processing_status(settings_file, "completed", {
+                        "final_output": str(output_path / generate_output_filename(
+                            Path(video_path).name,
+                            settings['vr_format'],
+                            settings['vr_resolution'],
+                            settings['processing_mode']
+                        )),
+                        "frames_processed": len(frame_files)
+                    })
+            else:
+                if settings_file:
+                    update_processing_status(settings_file, "failed", {
+                        "error": "Video creation failed"
+                    })
             
             return success
             
         except Exception as e:
             print(f"Error in serial video processing: {e}")
+            if settings_file:
+                update_processing_status(settings_file, "failed", {
+                    "error": str(e)
+                })
             return False
     
     def _extract_frames(

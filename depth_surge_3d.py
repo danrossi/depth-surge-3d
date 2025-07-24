@@ -18,58 +18,81 @@ from depth_surge_3d.core.constants import (
     HOLE_FILL_METHODS, VALIDATION_RANGES
 )
 from depth_surge_3d.utils.resolution import get_available_resolutions
-from depth_surge_3d.utils.file_operations import validate_video_file
+from depth_surge_3d.utils.file_operations import (
+    validate_video_file, can_resume_processing, load_processing_settings
+)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Convert 2D videos to immersive 3D VR format using AI depth estimation",
+        description='Convert 2D videos to immersive 3D VR format using AI depth estimation',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic conversion with auto-detection
-  python depth_surge_3d_new.py input_video.mp4
-  
-  # High quality 4K conversion
-  python depth_surge_3d_new.py input_video.mp4 --vr-resolution 16x9-4k --format over_under
-  
-  # Custom resolution for ultra-wide content  
-  python depth_surge_3d_new.py input_video.mp4 --vr-resolution custom:2560x1080 --format over_under
-  
-  # Fast batch processing
-  python depth_surge_3d_new.py input_video.mp4 --processing-mode batch --vr-resolution 16x9-720p
-  
-  # Process specific time segment
-  python depth_surge_3d_new.py input_video.mp4 --start 01:30 --end 03:45
+  %(prog)s video.mp4                                    # Basic conversion
+  %(prog)s video.mp4 --vr-resolution 16x9-4k          # High quality 4K
+  %(prog)s video.mp4 --vr-resolution custom:2560x1080 # Custom resolution
+  %(prog)s video.mp4 --processing-mode batch          # Faster batch processing
+  %(prog)s --resume ./output/my_video_output/          # Resume previous job
+  %(prog)s --list-resolutions                          # Show available resolutions
         """
     )
     
-    # Positional arguments
-    parser.add_argument('input_video', help='Input video file path')
-    parser.add_argument('output_dir', nargs='?', default=DEFAULT_SETTINGS['output_dir'] if 'output_dir' in DEFAULT_SETTINGS else './output',
-                       help='Output directory (default: ./output)')
+    # Input/output arguments
+    parser.add_argument(
+        'input_video',
+        nargs='?',
+        help='Input video file path'
+    )
     
-    # VR format and resolution
-    parser.add_argument('-f', '--format', choices=['side_by_side', 'over_under'], 
-                       default=DEFAULT_SETTINGS['vr_format'], 
-                       help=f'VR output format (default: {DEFAULT_SETTINGS["vr_format"]})')
+    parser.add_argument(
+        '--output-dir', '-o',
+        default=DEFAULT_SETTINGS['output_dir'],
+        help='Output directory (default: %(default)s)'
+    )
     
-    parser.add_argument('--vr-resolution', 
-                       default=DEFAULT_SETTINGS['vr_resolution'], 
-                       help='VR output resolution format. Preset options: ' + 
-                            ', '.join(list(VR_RESOLUTIONS.keys())[:10]) + '... ' +
-                            'Custom format: custom:WIDTHxHEIGHT (e.g., custom:1920x1080). ' +
-                            f'Default: {DEFAULT_SETTINGS["vr_resolution"]}')
+    # Resume functionality
+    parser.add_argument(
+        '--resume',
+        metavar='DIRECTORY',
+        help='Resume processing from an existing output directory'
+    )
+    
+    # VR settings
+    available_resolutions = list(VR_RESOLUTIONS.keys()) + ['auto', 'custom']
+    parser.add_argument(
+        '--vr-resolution',
+        choices=available_resolutions,
+        default=DEFAULT_SETTINGS['vr_resolution'],
+        help='VR output resolution per eye (default: %(default)s)'
+    )
+    
+    parser.add_argument(
+        '-f', '--format',
+        choices=['side_by_side', 'over_under'],
+        default=DEFAULT_SETTINGS['vr_format'],
+        help='VR output format (default: %(default)s)'
+    )
     
     # Processing settings
-    parser.add_argument('--processing-mode', choices=['serial', 'batch'], 
-                       default=DEFAULT_SETTINGS['processing_mode'],
-                       help=f'Processing mode - serial (frame-by-frame) or batch (task-by-task + parallel) (default: {DEFAULT_SETTINGS["processing_mode"]})')
+    parser.add_argument(
+        '--processing-mode',
+        choices=['serial', 'batch'],
+        default=DEFAULT_SETTINGS['processing_mode'],
+        help='Processing mode (default: %(default)s)'
+    )
     
     # Time range
-    parser.add_argument('-s', '--start', help='Start time in mm:ss or hh:mm:ss format (e.g., 01:30)')
-    parser.add_argument('-e', '--end', help='End time in mm:ss or hh:mm:ss format (e.g., 03:45)')
+    parser.add_argument(
+        '--start',
+        help='Start time (format: HH:MM:SS or seconds)'
+    )
+    
+    parser.add_argument(
+        '--end',
+        help='End time (format: HH:MM:SS or seconds)'
+    )
     
     # Depth and stereo parameters
     parser.add_argument('-b', '--baseline', type=float, default=DEFAULT_SETTINGS['baseline'],
@@ -121,6 +144,18 @@ Examples:
 
 def validate_arguments(args) -> bool:
     """Validate command line arguments."""
+    
+    # Handle resume mode
+    if args.resume:
+        if not Path(args.resume).exists():
+            print(f"Error: Resume directory does not exist: {args.resume}")
+            return False
+        return True  # Skip other validations for resume mode
+    
+    # Regular mode validations
+    if not args.input_video:
+        print("Error: Input video is required when not resuming")
+        return False
     
     # Validate input video
     if not validate_video_file(args.input_video):
@@ -180,7 +215,62 @@ def main():
         list_available_resolutions()
         return 0
     
-    # Validate arguments
+    # Handle resume mode
+    if args.resume:
+        print(f"Checking resume capability for: {args.resume}")
+        resume_info = can_resume_processing(Path(args.resume))
+        
+        if not resume_info["can_resume"]:
+            print("❌ Cannot resume processing:")
+            for rec in resume_info["recommendations"]:
+                print(f"  - {rec}")
+            return 1
+        
+        print(f"✅ Can resume processing:")
+        print(f"  - Batch: {resume_info['batch_name']}")
+        print(f"  - Status: {resume_info['status']}")
+        if resume_info["progress_info"]:
+            progress = resume_info["progress_info"]
+            print(f"  - Progress: {progress['frames_processed']} frames processed")
+        
+        for rec in resume_info["recommendations"]:
+            print(f"  - {rec}")
+        
+        # Load settings from the settings file
+        settings_data = load_processing_settings(resume_info["settings_file"])
+        if not settings_data:
+            print("❌ Could not load settings file")
+            return 1
+        
+        # Extract video path and settings
+        video_path = settings_data["metadata"]["source_video"]
+        processing_settings = settings_data["processing_settings"]
+        
+        # Create projector with original model settings
+        projector = create_stereo_projector(
+            device=processing_settings.get('device', 'auto')
+        )
+        
+        print(f"🔄 Resuming processing...")
+        print(f"Input: {video_path}")
+        print(f"Output: {args.resume}")
+        
+        # Resume processing using original settings
+        success = projector.process_video(
+            video_path=video_path,
+            output_dir=args.resume,
+            **{k: v for k, v in processing_settings.items() 
+               if k not in ['output_dir', 'device']}
+        )
+        
+        if success:
+            print("🎉 Resume processing completed successfully!")
+            return 0
+        else:
+            print("❌ Resume processing failed. Check error messages above.")
+            return 1
+    
+    # Validate arguments for normal processing
     if not validate_arguments(args):
         return 1
     

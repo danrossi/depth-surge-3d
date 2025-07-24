@@ -6,9 +6,11 @@ and path operations without side effects.
 """
 
 import os
+import json
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any
+import time
 import cv2
 
 from ..core.constants import (
@@ -495,3 +497,314 @@ def estimate_output_size(
     estimates["total"] = sum(estimates.values())
     
     return estimates 
+
+
+def save_processing_settings(
+    output_dir: Path,
+    batch_name: str,
+    settings: Dict[str, Any],
+    video_properties: Dict[str, Any],
+    source_video_path: str
+) -> Path:
+    """
+    Save processing settings to a JSON file in the output directory.
+    
+    Args:
+        output_dir: Output directory path
+        batch_name: Name of the processing batch/job
+        settings: Complete processing settings dictionary
+        video_properties: Video metadata
+        source_video_path: Path to source video file
+        
+    Returns:
+        Path to the saved settings file
+    """
+    settings_data = {
+        "metadata": {
+            "batch_name": batch_name,
+            "source_video": str(source_video_path),
+            "source_video_name": Path(source_video_path).name,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "created_timestamp": time.time(),
+            "project_version": "1.0.0",
+            "processing_status": "in_progress"
+        },
+        "video_properties": video_properties,
+        "processing_settings": settings,
+        "output_info": {
+            "output_directory": str(output_dir),
+            "expected_output_filename": generate_output_filename(
+                Path(source_video_path).name,
+                settings['vr_format'],
+                settings['vr_resolution'],
+                settings['processing_mode']
+            )
+        }
+    }
+    
+    # Save settings file
+    settings_file = output_dir / f"{batch_name}-settings.json"
+    
+    try:
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            json.dump(settings_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"Settings saved to: {settings_file}")
+        return settings_file
+        
+    except Exception as e:
+        print(f"Warning: Could not save settings file: {e}")
+        # Create a minimal fallback file
+        fallback_data = {
+            "metadata": {"batch_name": batch_name, "error": f"Failed to save full settings: {e}"},
+            "processing_settings": settings
+        }
+        try:
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(fallback_data, f, indent=2)
+        except:
+            pass  # If we can't even save the fallback, continue without it
+        
+        return settings_file
+
+
+def load_processing_settings(settings_file: Path) -> Optional[Dict[str, Any]]:
+    """
+    Load processing settings from a JSON file.
+    
+    Args:
+        settings_file: Path to settings file
+        
+    Returns:
+        Dictionary with loaded settings data or None if failed
+    """
+    try:
+        if not settings_file.exists():
+            print(f"Settings file not found: {settings_file}")
+            return None
+            
+        with open(settings_file, 'r', encoding='utf-8') as f:
+            settings_data = json.load(f)
+        
+        print(f"Settings loaded from: {settings_file}")
+        return settings_data
+        
+    except Exception as e:
+        print(f"Error loading settings file: {e}")
+        return None
+
+
+def update_processing_status(
+    settings_file: Path,
+    status: str,
+    additional_info: Optional[Dict[str, Any]] = None
+) -> bool:
+    """
+    Update the processing status in the settings file.
+    
+    Args:
+        settings_file: Path to settings file
+        status: New status ('in_progress', 'completed', 'failed', 'paused')
+        additional_info: Additional metadata to add
+        
+    Returns:
+        True if update was successful
+    """
+    try:
+        settings_data = load_processing_settings(settings_file)
+        if not settings_data:
+            return False
+        
+        # Update status and timestamp
+        settings_data["metadata"]["processing_status"] = status
+        settings_data["metadata"]["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        settings_data["metadata"]["last_updated_timestamp"] = time.time()
+        
+        if status == "completed":
+            settings_data["metadata"]["completed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            settings_data["metadata"]["completed_timestamp"] = time.time()
+            
+            # Calculate processing duration
+            if "created_timestamp" in settings_data["metadata"]:
+                duration = time.time() - settings_data["metadata"]["created_timestamp"]
+                settings_data["metadata"]["processing_duration_seconds"] = duration
+                settings_data["metadata"]["processing_duration_formatted"] = format_time_duration(duration)
+        
+        # Add any additional info
+        if additional_info:
+            if "runtime_info" not in settings_data:
+                settings_data["runtime_info"] = {}
+            settings_data["runtime_info"].update(additional_info)
+        
+        # Save updated settings
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            json.dump(settings_data, f, indent=2, ensure_ascii=False)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Warning: Could not update settings file status: {e}")
+        return False
+
+
+def find_settings_file(output_dir: Path, batch_name: Optional[str] = None) -> Optional[Path]:
+    """
+    Find a settings file in the output directory.
+    
+    Args:
+        output_dir: Output directory to search
+        batch_name: Specific batch name to look for (if None, finds any)
+        
+    Returns:
+        Path to settings file or None if not found
+    """
+    try:
+        if batch_name:
+            # Look for specific batch
+            settings_file = output_dir / f"{batch_name}-settings.json"
+            if settings_file.exists():
+                return settings_file
+        else:
+            # Find any settings file
+            for file_path in output_dir.glob("*-settings.json"):
+                return file_path
+        
+        return None
+        
+    except Exception:
+        return None
+
+
+def can_resume_processing(output_dir: Path) -> Dict[str, Any]:
+    """
+    Check if processing can be resumed from the given directory.
+    
+    Args:
+        output_dir: Output directory to check
+        
+    Returns:
+        Dictionary with resume information
+    """
+    result = {
+        "can_resume": False,
+        "settings_file": None,
+        "batch_name": None,
+        "status": None,
+        "progress_info": None,
+        "recommendations": []
+    }
+    
+    try:
+        # Find settings file
+        settings_file = find_settings_file(output_dir)
+        if not settings_file:
+            result["recommendations"].append("No settings file found - cannot resume")
+            return result
+        
+        # Load settings
+        settings_data = load_processing_settings(settings_file)
+        if not settings_data:
+            result["recommendations"].append("Could not load settings file")
+            return result
+        
+        result["settings_file"] = settings_file
+        result["batch_name"] = settings_data.get("metadata", {}).get("batch_name")
+        result["status"] = settings_data.get("metadata", {}).get("processing_status")
+        
+        # Check if can resume based on status
+        if result["status"] in ["completed"]:
+            result["recommendations"].append("Processing already completed")
+            return result
+        elif result["status"] in ["in_progress", "paused", "failed"]:
+            result["can_resume"] = True
+            
+            # Analyze progress
+            progress_info = analyze_processing_progress(output_dir, settings_data)
+            result["progress_info"] = progress_info
+            
+            if progress_info["frames_processed"] > 0:
+                result["recommendations"].append(
+                    f"Found {progress_info['frames_processed']} processed frames - can resume from where left off"
+                )
+            else:
+                result["recommendations"].append("No processed frames found - will restart from beginning")
+        
+        return result
+        
+    except Exception as e:
+        result["recommendations"].append(f"Error checking resume capability: {e}")
+        return result
+
+
+def analyze_processing_progress(
+    output_dir: Path,
+    settings_data: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Analyze how much processing has been completed.
+    
+    Args:
+        output_dir: Output directory path
+        settings_data: Loaded settings data
+        
+    Returns:
+        Dictionary with progress analysis
+    """
+    progress = {
+        "frames_processed": 0,
+        "vr_frames_created": 0,
+        "intermediate_stages": {},
+        "can_resume_from_intermediates": False
+    }
+    
+    try:
+        # Check each intermediate directory
+        for stage_name, dir_name in INTERMEDIATE_DIRS.items():
+            stage_dir = output_dir / dir_name
+            if stage_dir.exists():
+                frame_count = len(list(stage_dir.glob("*.png")))
+                progress["intermediate_stages"][stage_name] = {
+                    "directory": str(stage_dir),
+                    "frames_found": frame_count
+                }
+                
+                if stage_name == "vr_frames":
+                    progress["vr_frames_created"] = frame_count
+        
+        # Determine overall progress
+        if progress["vr_frames_created"] > 0:
+            progress["frames_processed"] = progress["vr_frames_created"]
+            progress["can_resume_from_intermediates"] = True
+        elif "depth_maps" in progress["intermediate_stages"]:
+            depth_frames = progress["intermediate_stages"]["depth_maps"]["frames_found"]
+            if depth_frames > 0:
+                progress["frames_processed"] = depth_frames
+                progress["can_resume_from_intermediates"] = True
+        
+        return progress
+        
+    except Exception as e:
+        print(f"Warning: Could not analyze processing progress: {e}")
+        return progress
+
+
+def format_time_duration(seconds: float) -> str:
+    """
+    Format duration in seconds to human-readable string.
+    
+    Args:
+        seconds: Duration in seconds
+        
+    Returns:
+        Formatted duration string
+    """
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        remaining_seconds = int(seconds % 60)
+        return f"{minutes}m {remaining_seconds}s"
+    else:
+        hours = int(seconds // 3600)
+        remaining_minutes = int((seconds % 3600) // 60)
+        return f"{hours}h {remaining_minutes}m" 
