@@ -365,30 +365,8 @@
                     </div>
                 </div>
                 
-                <!-- Resume Processing Section -->
+                <!-- Time Range Selection -->
                 <div class="card mt-3">
-                    <div class="card-header">
-                        <h5><i class="fas fa-play"></i> Resume Processing</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label for="resumeDirectory" class="form-label">Output Directory to Resume</label>
-                            <input type="text" class="form-control" id="resumeDirectory" 
-                                   placeholder="e.g., output/video_name_20231215_143022">
-                        </div>
-                        <button type="button" class="btn btn-warning" id="resumeBtn">
-                            <i class="fas fa-play"></i> Resume Processing
-                        </button>
-                        <small class="form-text text-muted mt-2">
-                            Resumes an interrupted processing job from the output directory timestamp.
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Time Range Selection and System Info -->
-            <div class="col-md-6">
-                <div class="card">
                     <div class="card-header">
                         <h5><i class="fas fa-clock"></i> Time Range Selection</h5>
                     </div>
@@ -420,6 +398,28 @@
                                 Leave empty to process entire video. Format: mm:ss (e.g., 01:30) or hh:mm:ss (e.g., 00:01:30)
                             </small>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resume Processing and System Info -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-play"></i> Resume Processing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="resumeDirectory" class="form-label">Output Directory to Resume</label>
+                            <input type="text" class="form-control" id="resumeDirectory" 
+                                   placeholder="e.g., output/video_name_20231215_143022">
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="resumeBtn">
+                            <i class="fas fa-play"></i> Resume Processing
+                        </button>
+                        <small class="form-text text-muted mt-2">
+                            Resumes an interrupted processing job from the output directory timestamp.
+                        </small>
                     </div>
                 </div>
                 
@@ -531,7 +531,7 @@
                                 <div class="btn-group w-100" role="group">
                                     <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('subtle')">Subtle & Clean</button>
                                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="set3DPreset('balanced')">Balanced</button>
-                                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="set3DPreset('strong')">Strong</button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="set3DPreset('strong')">Strong & Dirty</button>
                                 </div>
                                 <small class="form-text text-muted">Quick presets for common use cases</small>
                             </div>
@@ -569,20 +569,20 @@
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Processing Device</label>
-                                <select class="form-select" id="device">
-                                    <option value="auto" selected>Auto (GPU if available)</option>
-                                    <option value="cuda">Force GPU (CUDA)</option>
-                                    <option value="cpu">Force CPU</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
                                 <label class="form-label">Processing Mode <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Serial: frame-by-frame processing. Batch: task-by-task with parallelization for better performance."></i></label>
                                 <select class="form-select" id="processingMode">
                                     <option value="serial" selected>Serial (Frame-by-Frame)</option>
                                     <option value="batch">Batch (Task-by-Task + Parallel)</option>
                                 </select>
                                 <small class="form-text text-muted">Batch mode can be faster with parallelization but uses more memory</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Processing Device</label>
+                                <select class="form-select" id="device">
+                                    <option value="auto" selected>Auto (GPU if available)</option>
+                                    <option value="cuda">Force GPU (CUDA)</option>
+                                    <option value="cpu">Force CPU</option>
+                                </select>
                             </div>
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="preserveAudio" checked>
@@ -647,28 +647,21 @@
                         </div>
                     </div>
 
-                    <!-- Experimental Features Warning -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="card border-warning">
-                                <div class="card-header bg-warning text-dark">
-                                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Experimental Features</h6>
-                                </div>
+                    <!-- Experimental Features -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card border-secondary">
                                 <div class="card-body">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
                                         <label class="form-check-label" for="experimentalFrameInterpolation">
-                                            <strong>Frame Interpolation (Double FPS)</strong>
+                                            Frame Interpolation (Double FPS)
                                         </label>
                                     </div>
-                                    <div class="alert alert-warning mt-2 mb-0" role="alert">
-                                        <small>
-                                            <i class="fas fa-exclamation-circle"></i> 
-                                            <strong>WARNING:</strong> This experimental feature doubles the frame rate using motion interpolation 
-                                            but may produce artifacts, wobbling, or visual distortions. Results can be unpredictable and 
-                                            are recommended for artistic experimentation only, not for standard VR viewing.
-                                        </small>
-                                    </div>
+                                    <small class="text-muted mt-1 d-block">
+                                        <i class="fas fa-flask"></i> 
+                                        Experimental: May cause artifacts. For artistic use only.
+                                    </small>
                                 </div>
                             </div>
                         </div>
