@@ -24,7 +24,7 @@ from flask_socketio import SocketIO, emit
 import numpy as np
 import torch
 
-from stereo_projector import StereoProjector
+from depth_surge_3d import StereoProjector
 
 # Global verbose flag
 VERBOSE = False

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Analyze and fix the stereography issues in stereo_projector.py
+Analyze and fix the stereography issues in depth_surge_3d.py
 """
 
 import numpy as np

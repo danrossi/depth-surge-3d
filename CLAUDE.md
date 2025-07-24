@@ -28,7 +28,7 @@ A comprehensive 2D to 3D VR video converter using Depth Anything V2 for depth es
 
 # Command-line usage
 ./start.sh 1:18 1:33          # Quick processing with time range
-python stereo_projector.py --help  # Full CLI options
+python depth_surge_3d.py --help  # Full CLI options
 
 # Development workflow
 git status                    # Check current state

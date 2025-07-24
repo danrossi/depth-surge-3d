@@ -154,7 +154,7 @@ def main():
     print("  - Red circles: 0.1 (very close)")
     print()
     print("Test the stereo effect:")
-    print(f"  python stereo_projector.py {output_dir}/simple_test_video.mp4 -s 00:00 -e 00:01")
+    print(f"  python depth_surge_3d.py {output_dir}/simple_test_video.mp4 -s 00:00 -e 00:01")
 
 if __name__ == "__main__":
     main()

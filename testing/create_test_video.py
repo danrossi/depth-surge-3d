@@ -145,7 +145,7 @@ def main():
     print("  - Right gradient: 0.0 (top) to 1.0 (bottom)")
     print()
     print("Test the stereo effect:")
-    print(f"  python stereo_projector.py {output_dir}/test_video.mp4 -s 00:00 -e 00:02")
+    print(f"  python depth_surge_3d.py {output_dir}/test_video.mp4 -s 00:00 -e 00:02")
 
 if __name__ == "__main__":
     main()

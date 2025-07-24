@@ -50,7 +50,7 @@ Mathematical analysis of stereo disparity formula issues.
 python3 testing/create_simple_test.py
 
 # Process test with stereo projector
-python3 stereo_projector.py testing/simple_test.mp4 --vr-resolution square-3k
+python3 depth_surge_3d.py testing/simple_test.mp4 --vr-resolution square-3k
 
 # Verify results
 python3 testing/simple_disparity_check.py output --frame 1

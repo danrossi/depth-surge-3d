@@ -56,14 +56,14 @@ A powerful command-line tool and web application that converts 2D videos to imme
 
 ```bash
 # With uv (recommended - runs directly without manual activation)
-uv run python stereo_projector.py input_video.mp4
+uv run python depth_surge_3d.py input_video.mp4
 
 # Or activate virtual environment first
 source .venv/bin/activate  # for uv
 # source venv/bin/activate  # for traditional venv
 
 # Then run the script
-python stereo_projector.py input_video.mp4
+python depth_surge_3d.py input_video.mp4
 
 # Or use the installed command (if installed with -e flag)
 stereo-projector input_video.mp4
@@ -107,45 +107,45 @@ For command-line processing with time ranges:
 
 ```bash
 # With uv (all examples work with "uv run" prefix)
-uv run python stereo_projector.py input_video.mp4 -o ./my_output -f over_under
+uv run python depth_surge_3d.py input_video.mp4 -o ./my_output -f over_under
 
 # Or with activated virtual environment:
 
 # Specify output directory and format
-python stereo_projector.py input_video.mp4 -o ./my_output -f over_under
+python depth_surge_3d.py input_video.mp4 -o ./my_output -f over_under
 
 # Process only a specific time range (from 1 minute 30 seconds to 3 minutes 45 seconds)
-python stereo_projector.py input_video.mp4 -s 01:30 -e 03:45
+python depth_surge_3d.py input_video.mp4 -s 01:30 -e 03:45
 
 # Process with hours:minutes:seconds format
-python stereo_projector.py input_video.mp4 -s 00:01:30 -e 00:03:45
+python depth_surge_3d.py input_video.mp4 -s 00:01:30 -e 00:03:45
 
 # Process from start to specific time
-python stereo_projector.py input_video.mp4 -e 02:00
+python depth_surge_3d.py input_video.mp4 -e 02:00
 
 # Process from specific time to end
-python stereo_projector.py input_video.mp4 -s 01:00
+python depth_surge_3d.py input_video.mp4 -s 01:00
 
 # Adjust stereo parameters
-python stereo_projector.py input_video.mp4 -b 0.15 -fl 1200
+python depth_surge_3d.py input_video.mp4 -b 0.15 -fl 1200
 
 # Use CPU only (if no GPU available)
-python stereo_projector.py input_video.mp4 --device cpu
+python depth_surge_3d.py input_video.mp4 --device cpu
 
 # Don't save intermediate files
-python stereo_projector.py input_video.mp4 --no-intermediates
+python depth_surge_3d.py input_video.mp4 --no-intermediates
 
 # Disable audio preservation (audio is preserved by default)
-python stereo_projector.py input_video.mp4 -s 01:30 -e 02:00 --no-audio
+python depth_surge_3d.py input_video.mp4 -s 01:30 -e 02:00 --no-audio
 
 # Custom framerate and resolution
-python stereo_projector.py input_video.mp4 --fps 120 --resolution 4k
+python depth_surge_3d.py input_video.mp4 --fps 120 --resolution 4k
 
 # Process with original resolution (no upscaling)
-python stereo_projector.py input_video.mp4 --resolution original --fps 30
+python depth_surge_3d.py input_video.mp4 --resolution original --fps 30
 
 # Combined example: high-quality 4K 60fps processing
-python stereo_projector.py input_video.mp4 -s 01:30 -e 02:00 -f over_under --resolution 4k --fps 60 --no-intermediates
+python depth_surge_3d.py input_video.mp4 -s 01:30 -e 02:00 -f over_under --resolution 4k --fps 60 --no-intermediates
 ```
 
 ### Command Line Options

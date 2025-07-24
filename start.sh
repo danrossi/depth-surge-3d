@@ -31,11 +31,11 @@ if command -v uv &> /dev/null && uv --version &> /dev/null 2>&1; then
     echo "Using uv to run Depth Surge 3D..."
     # Test if uv run works (check for lock file issues)
     if uv run python --version &> /dev/null; then
-        uv run python stereo_projector.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
+        uv run python depth_surge_3d.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
     else
         echo "uv run failed, falling back to virtual environment..."
         source .venv/bin/activate
-        python stereo_projector.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
+        python depth_surge_3d.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
     fi
 else
     echo "Using virtual environment to run Depth Surge 3D..."
@@ -49,7 +49,7 @@ else
         exit 1
     fi
     
-    python stereo_projector.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
+            python depth_surge_3d.py "$INPUT_VIDEO" -s "$START_TIME" -e "$END_TIME"
 fi
 
 echo "Processing complete!"
