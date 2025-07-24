@@ -136,7 +136,7 @@ For command-line processing with time ranges:
 ```bash
 # Place your video as 'input_video.mp4' in the project directory
 # Then run with start and end times
-./start.sh 1:18 1:33
+./start.sh 1:11 2:22
 
 # The script automatically:
 # - Uses input_video.mp4 as source
@@ -322,8 +322,8 @@ Here's a typical workflow using the start script:
 
 4. **Quick processing**:
    ```bash
-   # Process a 15-second clip from 1:18 to 1:33 with audio
-   ./start.sh 1:18 1:33
+   # Process a 15-second clip from 1:00 to 1:15 with audio
+   ./start.sh 1:00 1:15
    ```
 
 5. **Find your output**:

@@ -3,7 +3,7 @@ name = "depth-surge-3d"
 version = "1.0.0"
 description = "Convert 2D videos to immersive 3D VR format using advanced AI depth estimation"
 authors = [
-    { name = "Depth Surge 3D Team", email = "contact@depthsurge3d.com" }
+    { name = "Zirteq", email = "zirteq111@gmail.com" }
 ]
 readme = "README.md"
 license = { text = "MIT" }

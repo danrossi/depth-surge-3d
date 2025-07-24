@@ -41,6 +41,7 @@ DEFAULT_SETTINGS = {
     "preserve_audio": True,
     "keep_intermediates": True,
     "apply_distortion": True,
+    "output_dir": "./output",  # Add missing output_dir
 }
 
 # VR resolution configurations (per eye)

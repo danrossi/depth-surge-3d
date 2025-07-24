@@ -27,7 +27,7 @@ A comprehensive 2D to 3D VR video converter using Depth Anything V2 for depth es
 ./run_ui.sh                   # Launch web interface (auto-opens browser)
 
 # Command-line usage
-./start.sh 1:18 1:33          # Quick processing with time range
+./start.sh 1:00 2:00          # Quick processing with time range
 python depth_surge_3d.py --help  # Full CLI options
 
 # Development workflow
