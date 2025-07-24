@@ -254,15 +254,15 @@ class ProgressCallback:
             if self.current_phase == "extraction":
                 # Extraction phase: 0-20%
                 progress = (self.current_frame / self.total_frames * 20) if self.total_frames > 0 else 0
-            elif self.current_phase == "processing":
-                # Processing phase: 20-85% 
+            elif self.current_phase in ["super_sampling", "depth_estimation", "stereo_generation", "distortion", "vr_assembly"]:
+                # Processing phases: 20-85% 
                 frame_progress = (self.current_frame / self.total_frames * 65) if self.total_frames > 0 else 0
                 progress = 20 + frame_progress
-            elif self.current_phase == "video":
+            elif self.current_phase == "video_creation":
                 # Video creation phase: 85-100%
                 progress = 85 + 15  # Set to 100% for video phase
             else:
-                progress = 0
+                progress = (self.current_frame / self.total_frames * 100) if self.total_frames > 0 else 0
             
         current_processing['progress'] = round(progress, 1)
         current_processing['phase'] = self.current_phase
@@ -347,18 +347,22 @@ def process_video_async(session_id, video_path, settings, output_dir):
         # Always use original FPS for frame count calculation (interpolation happens at the end)
         original_fps = video_info['fps']
         
-        if start_time and end_time:
-            duration = projector._time_to_seconds(end_time) - projector._time_to_seconds(start_time)
-        else:
-            duration = video_info['duration']
-            
-        expected_frames = int(duration * original_fps)
+        # Calculate actual frame range that will be extracted (matching VideoProcessor logic)
+        from depth_surge_3d.utils.file_operations import calculate_frame_range
+        start_frame, end_frame = calculate_frame_range(
+            video_info['frame_count'], original_fps, start_time, end_time
+        )
+        expected_frames = end_frame - start_frame
         
         processing_mode = settings.get('processing_mode', 'serial')
         callback = ProgressCallback(session_id, expected_frames, processing_mode)
         
-        # Use the new VideoProcessor approach
-        processor = VideoProcessor(projector.depth_estimator)
+        # Use the appropriate processor based on processing mode
+        if processing_mode == 'batch':
+            from depth_surge_3d.processing.batch_processor import BatchProcessor
+            processor = BatchProcessor(projector.depth_estimator)
+        else:
+            processor = VideoProcessor(projector.depth_estimator)
         
         # Calculate resolution settings that VideoProcessor expects
         from depth_surge_3d.utils.resolution import get_resolution_dimensions, calculate_vr_output_dimensions, auto_detect_resolution
