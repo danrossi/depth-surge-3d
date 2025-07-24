@@ -36,7 +36,7 @@ The result is 3D video that maintains the original content's motion and timing w
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - FFmpeg
 - CUDA-compatible GPU (optional, for faster processing)
 
@@ -112,7 +112,7 @@ choco install ffmpeg
 # Or download from: https://ffmpeg.org/download.html
 ```
 
-**Python 3.8+** and **Git**:
+**Python 3.9+** and **Git**:
 ```bash
 # Ubuntu/Debian
 sudo apt install python3 python3-venv git
