@@ -40,9 +40,9 @@ dependencies = [
 depth-surge-3d = "depth_surge_3d:main"
 
 [project.urls]
-Homepage = "https://github.com/your-username/depth-surge-3d"
-Repository = "https://github.com/your-username/depth-surge-3d"
-Issues = "https://github.com/your-username/depth-surge-3d/issues"
+Homepage = "https://github.com/tok/depth-surge-3d"
+Repository = "https://github.com/tok/depth-surge-3d"
+Issues = "https://github.com/tok/depth-surge-3d/issues"
 
 [build-system]
 requires = ["hatchling"]

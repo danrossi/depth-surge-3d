@@ -55,7 +55,7 @@ The result is 3D video that maintains the original content's motion and timing w
 Clone the repository and run the setup script:
 
 ```bash
-git clone <repository-url> depth-surge-3d
+git clone https://github.com/tok/depth-surge-3d.git depth-surge-3d
 cd depth-surge-3d
 chmod +x setup.sh
 ./setup.sh
@@ -127,7 +127,7 @@ brew install python3 git
 
 ```bash
 # Clone the repository
-git clone <repository-url> depth-surge-3d
+git clone https://github.com/tok/depth-surge-3d.git depth-surge-3d
 cd depth-surge-3d
 
 # Create virtual environment

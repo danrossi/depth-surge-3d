@@ -286,9 +286,15 @@
     <div class="container-fluid mt-3">
         <div class="row">
             <div class="col-12">
+                <div class="text-end mb-2">
+                    <small class="text-muted">
+                        <a href="https://github.com/tok/depth-surge-3d" target="_blank" class="text-decoration-none text-muted">
+                            <i class="fab fa-github"></i> github.com/tok/depth-surge-3d
+                        </a>
+                    </small>
+                </div>
                 <h1 class="text-center mb-3">
                     <i class="fas fa-cube"></i> Depth Surge 3D
-                    <small class="text-muted d-block">AI-Powered 2D to 3D VR Conversion</small>
                 </h1>
             </div>
         </div>
@@ -392,12 +398,7 @@
                             </div>
                         </div>
                         
-                        <div class="alert alert-info">
-                            <small>
-                                <i class="fas fa-info-circle"></i>
-                                Leave empty to process entire video. Format: mm:ss (e.g., 01:30) or hh:mm:ss (e.g., 00:01:30)
-                            </small>
-                        </div>
+
                     </div>
                 </div>
             </div>
@@ -596,6 +597,15 @@
                                     Keep Intermediate Files
                                 </label>
                             </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
+                                <label class="form-check-label" for="experimentalFrameInterpolation">
+                                    Frame Interpolation (Double FPS)
+                                </label>
+                                <small class="text-muted d-block ms-4">
+                                    <i class="fas fa-flask"></i> Experimental: May cause artifacts
+                                </small>
+                            </div>
                         </div>
 
                         <!-- Fisheye & Cropping -->
@@ -647,25 +657,7 @@
                         </div>
                     </div>
 
-                    <!-- Experimental Features -->
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <div class="card border-secondary">
-                                <div class="card-body">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
-                                        <label class="form-check-label" for="experimentalFrameInterpolation">
-                                            Frame Interpolation (Double FPS)
-                                        </label>
-                                    </div>
-                                    <small class="text-muted mt-1 d-block">
-                                        <i class="fas fa-flask"></i> 
-                                        Experimental: May cause artifacts. For artistic use only.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Process Button -->
                     <div class="text-center mt-3">
