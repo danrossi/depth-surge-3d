@@ -440,6 +440,92 @@ Run `./test.sh` to verify your installation:
 3. **Slow processing**: GPU acceleration requires CUDA-compatible hardware
 4. **Out of memory**: Reduce resolution with `--resolution 720p` or use `--device cpu`
 
+### Understanding Stereo Parameters & Artifact Management
+
+#### Baseline and Focal Length Relationship
+
+The **baseline** (distance between virtual cameras) and **focal length** work together to control 3D depth strength:
+
+- **Baseline (default: 0.065m)**: Physical separation between left/right viewpoints
+  - **Larger baseline** = stronger 3D effect, more "pop-out"
+  - **Smaller baseline** = subtler 3D effect, more comfortable viewing
+  - **Range**: 0.02m (subtle) to 0.15m (very strong)
+
+- **Focal Length (default: 1000px)**: Virtual camera lens characteristics
+  - **Higher focal length** = objects appear closer, stronger depth separation
+  - **Lower focal length** = objects appear farther, gentler depth transitions
+  - **Range**: 500px (wide-angle feel) to 2000px (telephoto feel)
+
+**Tuning Strategy**:
+```bash
+# Subtle 3D for comfortable viewing
+--baseline 0.04 --focal-length 800
+
+# Strong 3D for dramatic effect
+--baseline 0.10 --focal-length 1200
+
+# Balanced (default)
+--baseline 0.065 --focal-length 1000
+```
+
+#### Managing Artifacts and "Invented Pixels"
+
+**Common Artifacts**:
+- **Stretching/warping**: Objects appear distorted at depth boundaries
+- **Floating pixels**: Disconnected visual elements
+- **Edge artifacts**: Jagged or broken object boundaries
+- **"Invented pixels"**: AI fills gaps with estimated content that may not match reality
+
+**Artifact Reduction Strategies**:
+
+1. **Reduce 3D Strength** (most effective):
+   ```bash
+   # Conservative settings for clean results
+   --baseline 0.035 --focal-length 700
+   ```
+
+2. **Adjust Hole Filling**:
+   - `--hole-fill-quality fast`: Simple inpainting, fewer artifacts but visible gaps
+   - `--hole-fill-quality advanced`: Better gap filling but may introduce AI "hallucinations"
+
+3. **Crop More Aggressively**:
+   ```bash
+   # Remove problematic edges
+   --crop-factor 0.8 --fisheye-crop-factor 0.9
+   ```
+
+**Trade-offs to Understand**:
+- **Strong 3D vs. Clean Image**: More dramatic depth = more artifacts
+- **Hole Filling Quality vs. Performance**: Advanced filling is 3-5x slower with marginal visual improvement
+- **Edge Preservation vs. 3D Effect**: Keeping original content vs. creating convincing stereo
+
+#### Performance vs. Quality Trade-offs
+
+**Hole Filling Quality Impact**:
+- **Fast**: ~2-4 seconds per frame, basic gap filling
+- **Advanced**: ~8-15 seconds per frame, sophisticated depth-guided filling
+- **Reality**: Advanced mode often provides only 10-20% visual improvement despite 3-4x processing time
+
+**Optimization Recommendations**:
+```bash
+# Fast processing for testing
+--hole-fill-quality fast --vr-resolution 16x9-720p
+
+# Balanced quality/speed
+--hole-fill-quality fast --vr-resolution 16x9-1080p
+
+# Maximum quality (slow)
+--hole-fill-quality advanced --vr-resolution 16x9-4k
+```
+
+**When to Reduce 3D Strength**:
+- Content with many depth discontinuities (trees, hair, complex objects)
+- Fast camera movement or quick subject motion
+- Scenes with reflective surfaces or transparent objects
+- When artifacts are more distracting than the 3D effect is beneficial
+
+**Remember**: Subtle, clean 3D is often more enjoyable than aggressive 3D with artifacts. Start conservative and increase strength only if the content handles it well.
+
 ## Processing Settings & Resume
 
 ### Automatic Settings Recording

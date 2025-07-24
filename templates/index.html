@@ -468,14 +468,25 @@
                                 <small class="form-text text-muted">Specify custom width × height per eye (e.g., 1920 × 1080)</small>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Stereo Baseline</label>
-                                <input type="number" class="form-control" id="baseline" value="0.065" step="0.005" min="0.055" max="0.075">
-                                <small class="form-text text-muted">Distance between virtual cameras in meters (0.055-0.075, default: 0.065 = average human IPD)</small>
+                                <label class="form-label">Stereo Baseline <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Controls 3D strength. Larger = stronger 3D effect but more artifacts. Start with 0.035-0.05 for subtle, clean results."></i></label>
+                                <input type="number" class="form-control" id="baseline" value="0.065" step="0.005" min="0.02" max="0.15">
+                                <small class="form-text text-muted">Distance between virtual cameras in meters (0.02-0.15, default: 0.065 = average human IPD)
+                                <br><strong>Tip:</strong> Reduce to 0.035-0.05 if you see artifacts or warping</small>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Focal Length</label>
-                                <input type="number" class="form-control" id="focalLength" value="1000" step="100" min="500" max="5000">
-                                <small class="form-text text-muted">Virtual camera focal length (500-5000)</small>
+                                <label class="form-label">Focal Length <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Works with baseline to control depth perception. Higher = stronger depth separation. Lower = gentler transitions."></i></label>
+                                <input type="number" class="form-control" id="focalLength" value="1000" step="50" min="500" max="2000">
+                                <small class="form-text text-muted">Virtual camera focal length (500-2000px, default: 1000)
+                                <br><strong>Conservative:</strong> 700-800 | <strong>Aggressive:</strong> 1200-1500</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">3D Strength Presets</label>
+                                <div class="btn-group w-100" role="group">
+                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('subtle')">Subtle & Clean</button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="set3DPreset('balanced')">Balanced</button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="set3DPreset('strong')">Strong</button>
+                                </div>
+                                <small class="form-text text-muted">Quick presets for common use cases</small>
                             </div>
                         </div>
 
@@ -583,7 +594,8 @@
                                     <option value="fast" selected>Fast (Simple Inpainting)</option>
                                     <option value="advanced">Advanced (Multi-Stage + Depth Guidance)</option>
                                 </select>
-                                <small class="form-text text-muted">Balance between processing speed and stereo quality</small>
+                                <small class="form-text text-muted">Balance between processing speed and stereo quality
+                                <br><strong>Warning:</strong> Advanced is 3-5x slower with often minimal visual improvement</small>
                             </div>
                         </div>
                     </div>
@@ -1764,6 +1776,32 @@
             });
         }
         
+        // 3D Strength preset functions
+        function set3DPreset(preset) {
+            const baselineEl = document.getElementById('baseline');
+            const focalLengthEl = document.getElementById('focalLength');
+            const holeFillEl = document.getElementById('holeFillQuality');
+            
+            switch(preset) {
+                case 'subtle':
+                    baselineEl.value = '0.035';
+                    focalLengthEl.value = '700';
+                    holeFillEl.value = 'fast';
+                    break;
+                case 'balanced':
+                    baselineEl.value = '0.065';
+                    focalLengthEl.value = '1000';
+                    holeFillEl.value = 'fast';
+                    break;
+                case 'strong':
+                    baselineEl.value = '0.10';
+                    focalLengthEl.value = '1200';
+                    holeFillEl.value = 'fast';
+                    break;
+            }
+            saveSettings(); // Save the new values
+        }
+
         // Reset settings button
         document.getElementById('resetSettingsBtn').addEventListener('click', function() {
             if (confirm('This will reset all settings to their default values. Are you sure?')) {
