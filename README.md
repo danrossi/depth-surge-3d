@@ -8,6 +8,8 @@ A powerful command-line tool and web application that converts 2D videos to imme
 - Generate depth maps using Depth Anything V2
 - Create left and right stereo images from depth information
 - Output in VR-compatible formats (side-by-side or over-under)
+- **Wide aspect ratio support** (16:9, 21:9, cinema formats)
+- **Smart format recommendations** based on content aspect ratio
 - Save intermediate results (depth maps, stereo frames)
 - High-performance GPU acceleration support
 - Intuitive web interface for easy processing
@@ -154,10 +156,18 @@ python depth_surge_3d.py input_video.mp4 -s 01:30 -e 02:00 -f over_under --resol
 - `-o, --output`: Output directory (default: ./output)
 - `-m, --model`: Path to Depth Anything V2 model file
 - `-f, --format`: VR format - 'side_by_side' or 'over_under' (default: side_by_side)
+- `--vr-resolution`: Resolution format including wide options (default: auto)
+  - Square: square-1k, square-2k, square-3k, square-4k, square-5k
+  - Wide: wide-2k, wide-4k, ultrawide
+  - Cinema: cinema-2k, cinema-4k (ultra-wide, recommend over-under)
 - `-s, --start`: Start time in mm:ss or hh:mm:ss format (e.g., 01:30 or 00:01:30)
 - `-e, --end`: End time in mm:ss or hh:mm:ss format (e.g., 03:45 or 00:03:45)
-- `-b, --baseline`: Stereo baseline distance (default: 0.1)
+- `-b, --baseline`: Stereo baseline distance (default: 0.065 - average human IPD)
 - `-fl, --focal-length`: Virtual focal length (default: 1000)
+- `--fisheye-projection`: Projection model (default: stereographic)
+- `--fisheye-fov`: Field of view in degrees (default: 105, range: 75-180)
+- `--crop-factor`: Center crop factor (default: 1.0 - no crop)
+- `--hole-fill-quality`: Hole filling quality - 'fast' or 'advanced' (default: fast)
 - `--fps`: Target framerate for output video (default: 60)
 - `--resolution`: Minimum resolution - '720p', '1080p', '4k', or 'original' (default: 1080p)
 - `--no-audio`: Do not preserve audio from original video (audio preserved by default)
@@ -178,12 +188,30 @@ output/
 └── stereo_output_side_by_side.mp4  # Final VR video
 ```
 
+## Wide Aspect Ratio Support
+
+Depth Surge 3D now supports preserving more of your original content with wide aspect ratios:
+
+### Format Recommendations
+- **Ultra-wide content (>2.2:1)**: Cinema formats with **over-under** layout recommended
+- **Wide content (>1.6:1)**: Wide formats, consider **over-under** for better preservation
+- **Standard content**: Square formats work best with **side-by-side**
+
+### Resolution Options
+- **Square formats**: Optimized for VR headsets (1:1 aspect ratio)
+- **Wide formats**: 16:9 aspect ratio, preserves more horizontal content
+- **Cinema formats**: 2.39:1 ultra-wide, ideal for cinematic content
+
+### Auto-Detection
+The system automatically detects your content's aspect ratio and recommends the best format and resolution combination.
+
 ## VR Viewing
 
 The generated video can be viewed with:
 - VR headsets (Oculus, HTC Vive, etc.)
 - Cardboard VR viewers
 - 3D video players that support side-by-side or over-under formats
+- Wide-screen displays (for cinema formats)
 
 ## Workflow Example
 
@@ -250,8 +278,11 @@ Run `./test.sh` to verify your installation:
 
 ### Parameters
 
-- **Baseline**: Distance between virtual left and right cameras. Larger values create stronger 3D effect but may cause eye strain
+- **Baseline**: Distance between virtual left and right cameras (default: 0.065m - average human IPD)
 - **Focal Length**: Virtual camera focal length. Affects the depth perception scale
+- **Projection**: Fisheye projection model (default: stereographic for better quality)
+- **Field of View**: Fisheye FOV in degrees (default: 105° for natural viewing)
+- **Crop Factor**: Center crop amount (default: 1.0 - no crop to preserve content)
 - **Target FPS**: Frame interpolation target (default 60fps for smooth VR)
 - **Resolution**: Minimum output resolution with intelligent upscaling
 
