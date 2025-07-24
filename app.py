@@ -348,7 +348,8 @@ def process_video_async(session_id, video_path, settings, output_dir):
             video_path=video_path,
             output_dir=output_dir,
             video_properties=video_info,
-            settings=settings
+            settings=settings,
+            progress_callback=callback
         )
         
         if not success:

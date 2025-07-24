@@ -37,7 +37,8 @@ class VideoProcessor:
         video_path: str,
         output_dir: str,
         video_properties: Dict[str, Any],
-        settings: Dict[str, Any]
+        settings: Dict[str, Any],
+        progress_callback=None
     ) -> bool:
         """
         Process video in serial mode.
@@ -47,6 +48,7 @@ class VideoProcessor:
             output_dir: Output directory path
             video_properties: Video metadata
             settings: Processing settings
+            progress_callback: Optional progress callback for web UI
             
         Returns:
             True if processing completed successfully
@@ -80,7 +82,12 @@ class VideoProcessor:
             print(f"Processing {len(frame_files)} frames in serial mode...")
             
             # Initialize progress tracker
-            progress_tracker = create_progress_tracker(len(frame_files), 'serial')
+            if progress_callback:
+                # Use the provided callback (from Flask web app)
+                progress_tracker = progress_callback
+            else:
+                # Create default progress tracker for CLI usage
+                progress_tracker = create_progress_tracker(len(frame_files), 'serial')
             
             # Process frames
             success = self._process_frames_serial(
