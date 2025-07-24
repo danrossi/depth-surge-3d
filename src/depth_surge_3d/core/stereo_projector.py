@@ -71,7 +71,8 @@ class StereoProjector:
         vr_resolution: str = None,
         fisheye_crop_factor: float = None,
         hole_fill_quality: str = None,
-        processing_mode: str = None
+        processing_mode: str = None,
+        experimental_frame_interpolation: bool = None
     ) -> bool:
         """
         Process video to create 3D VR version.
@@ -473,6 +474,69 @@ class StereoProjector:
         
         # Calculate final VR dimensions based on format
         return calculate_vr_output_dimensions(per_eye_width, per_eye_height, vr_format)
+    
+    def create_output_video(
+        self,
+        vr_frames_dir: str,
+        output_path: str,
+        original_video_path: str,
+        vr_format: str = 'side_by_side',
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        preserve_audio: bool = True,
+        target_fps: Optional[str] = None
+    ) -> bool:
+        """
+        Create final output video from VR frames.
+        
+        Args:
+            vr_frames_dir: Directory containing VR frames
+            output_path: Output video file path
+            original_video_path: Path to original video (for audio extraction)
+            vr_format: VR format ('side_by_side', 'over_under')
+            start_time: Start time for audio sync
+            end_time: End time for audio sync
+            preserve_audio: Whether to include audio
+            target_fps: Target FPS for output video
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        vr_frames_path = Path(vr_frames_dir)
+        
+        # Get list of VR frames
+        vr_frame_files = sorted(vr_frames_path.glob('*.png'))
+        if not vr_frame_files:
+            raise ValueError(f"No VR frames found in {vr_frames_dir}")
+        
+        # Build FFmpeg command
+        cmd = [
+            'ffmpeg', '-y',
+            '-framerate', str(target_fps) if target_fps and target_fps != 'original' else '30',
+            '-i', str(vr_frames_path / '%06d.png'),
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p'
+        ]
+        
+        # Add audio if requested
+        if preserve_audio:
+            cmd.extend(['-i', original_video_path])
+            if start_time:
+                cmd.extend(['-ss', start_time])
+            if end_time:
+                cmd.extend(['-to', end_time])
+            cmd.extend(['-c:a', 'aac', '-shortest'])
+        
+        # Add output path
+        cmd.append(output_path)
+        
+        # Run FFmpeg
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg video creation failed: {e.stderr}")
+            return False
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the loaded model."""
