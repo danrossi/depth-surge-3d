@@ -10,6 +10,9 @@ A powerful command-line tool and web application that converts 2D videos to imme
 - Output in VR-compatible formats (side-by-side or over-under)
 - **Wide aspect ratio support** (16:9, 21:9, cinema formats)
 - **Smart format recommendations** based on content aspect ratio
+- **Dual processing modes**: Serial (frame-by-frame) and Batch (task-by-task with parallelization)
+- **Low resolution options** for quick testing (480×480, 720×720)
+- **Enhanced progress tracking** with step-by-step feedback
 - Save intermediate results (depth maps, stereo frames)
 - High-performance GPU acceleration support
 - Intuitive web interface for easy processing
@@ -156,8 +159,9 @@ python depth_surge_3d.py input_video.mp4 -s 01:30 -e 02:00 -f over_under --resol
 - `-o, --output`: Output directory (default: ./output)
 - `-m, --model`: Path to Depth Anything V2 model file
 - `-f, --format`: VR format - 'side_by_side' or 'over_under' (default: side_by_side)
+- `--processing-mode`: Processing mode - 'serial' or 'batch' (default: serial)
 - `--vr-resolution`: Resolution format including wide options (default: auto)
-  - Square: square-1k, square-2k, square-3k, square-4k, square-5k
+  - Square: square-480, square-720, square-1k, square-2k, square-3k, square-4k, square-5k
   - Wide: wide-2k, wide-4k, ultrawide
   - Cinema: cinema-2k, cinema-4k (ultra-wide, recommend over-under)
 - `-s, --start`: Start time in mm:ss or hh:mm:ss format (e.g., 01:30 or 00:01:30)
@@ -204,6 +208,27 @@ Depth Surge 3D now supports preserving more of your original content with wide a
 
 ### Auto-Detection
 The system automatically detects your content's aspect ratio and recommends the best format and resolution combination.
+
+## Processing Modes
+
+Depth Surge 3D offers two processing modes optimized for different scenarios:
+
+### Serial Mode (Default)
+- **Frame-by-frame processing**: Each frame goes through the complete pipeline before starting the next
+- **Lower memory usage**: Only one frame in memory at a time
+- **Predictable progress**: Clear frame-by-frame progress tracking
+- **Best for**: Limited memory systems, debugging, or when consistent memory usage is important
+
+### Batch Mode (Recommended for Performance)
+- **Task-by-task processing**: Complete each processing step for all frames before moving to the next step
+- **Parallelization**: Uses multiple CPU cores for significant speed improvements
+- **Higher memory usage**: Multiple frames processed simultaneously
+- **Step-based progress**: Tracks progress by processing steps rather than individual frames
+- **Best for**: Systems with ample RAM and multi-core CPUs
+
+### Performance Comparison
+- **Serial**: Predictable, lower memory, good for limited resources
+- **Batch**: 2-4x faster on multi-core systems, but requires more RAM
 
 ## VR Viewing
 
