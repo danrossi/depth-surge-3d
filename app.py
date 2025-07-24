@@ -404,6 +404,10 @@ class StereoProjectorWithProgress:
         self.projector = projector
         self.callback = callback
         self.processing_mode = getattr(callback, 'processing_mode', 'serial')
+    
+    def __getattr__(self, name):
+        """Delegate all missing attributes to the underlying projector"""
+        return getattr(self.projector, name)
         
     def process_video(self, **kwargs):
         """Process video with progress tracking"""
