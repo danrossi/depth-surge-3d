@@ -32,8 +32,8 @@ DEFAULT_SETTINGS = {
     "processing_mode": "serial",
     "fisheye_projection": "stereographic",
     "fisheye_fov": 105,  # degrees
-    "crop_factor": 1.0,  # no crop by default
-    "fisheye_crop_factor": 1.0,  # no crop by default
+    "crop_factor": 1.5,  # default: 1.5 (matches user preference)
+    "fisheye_crop_factor": 0.7,  # default: 0.7 (matches user preference)
     "hole_fill_quality": "fast",
     "super_sample": "auto",
     "target_fps": 60,
