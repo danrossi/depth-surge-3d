@@ -14,45 +14,25 @@ from .video_processor import VideoProcessor
 class BatchProcessor(VideoProcessor):
     """
     Handles batch video processing with parallel operations.
-    
-    Note: This is currently a placeholder that extends VideoProcessor.
-    Full batch processing implementation would include parallel processing
-    of operations grouped by type (all depth maps, then all stereo pairs, etc.)
     """
-    
-    def __init__(self, depth_estimator: DepthEstimator):
-        super().__init__(depth_estimator)
-    
+    def __init__(self, depth_estimator: DepthEstimator, verbose: bool = False):
+        super().__init__(depth_estimator, verbose=verbose)
+
     def process(
         self,
         video_path: str,
         output_dir: str,
         video_properties: Dict[str, Any],
-        settings: Dict[str, Any]
+        settings: Dict[str, Any],
+        progress_callback=None
     ) -> bool:
         """
         Process video in batch mode.
-        
         Currently delegates to serial processing.
-        Future implementation will include true batch processing with:
-        - Parallel frame extraction
-        - Batch depth map generation
-        - Parallel stereo pair creation
-        - Batch fisheye distortion
-        - Parallel VR frame creation
-        
-        Args:
-            video_path: Path to input video
-            output_dir: Output directory path
-            video_properties: Video metadata
-            settings: Processing settings
-            
-        Returns:
-            True if processing completed successfully
         """
-        print("Note: Batch processing currently uses serial implementation")
-        print("Future versions will include true parallel batch processing")
-        
-        # Temporarily delegate to serial processing
-        # TODO: Implement true batch processing with parallel operations
-        return super().process(video_path, output_dir, video_properties, settings) 
+        print("\n=== Depth Surge 3D Batch Processing Pipeline ===")
+        print(f"Input: {video_path}")
+        print(f"Output: {output_dir}")
+        print(f"Mode: batch\n")
+        # Temporarily delegate to serial processing (stepwise CLI output)
+        return super().process(video_path, output_dir, video_properties, settings, progress_callback=progress_callback) 

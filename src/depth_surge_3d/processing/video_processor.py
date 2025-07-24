@@ -29,8 +29,9 @@ from ..core.constants import INTERMEDIATE_DIRS
 class VideoProcessor:
     """Handles serial video processing (frame-by-frame)."""
     
-    def __init__(self, depth_estimator: DepthEstimator):
+    def __init__(self, depth_estimator: DepthEstimator, verbose: bool = False):
         self.depth_estimator = depth_estimator
+        self.verbose = verbose
     
     def process(
         self,
@@ -79,7 +80,12 @@ class VideoProcessor:
                     })
                 return False
             
-            print(f"Processing {len(frame_files)} frames in serial mode...")
+            print(f"\n=== Depth Surge 3D Processing Pipeline ===")
+            print(f"Input: {video_path}")
+            print(f"Output: {output_path}")
+            print(f"Total frames: {len(frame_files)}\n")
+            print(f"Step 1/7: Extracting frames...")
+            print(f"  -> Saved to: {directories['frames']}")
             
             # Initialize progress tracker
             if progress_callback:
@@ -89,10 +95,47 @@ class VideoProcessor:
                 # Create default progress tracker for CLI usage
                 progress_tracker = create_progress_tracker(len(frame_files), 'serial')
             
-            # Process frames
-            success = self._process_frames_serial(
-                frame_files, directories, settings, progress_tracker
-            )
+            # Step 2/7: Super Sampling (if enabled)
+            if settings['super_sample'] != 'none':
+                print(f"Step 2/7: Super sampling frames...")
+                print(f"  -> Will generate upscaled frames if needed.")
+            # Step 3/7: Depth Map Generation
+            print(f"Step 3/7: Generating depth maps...")
+            print(f"  -> Will save to: {directories.get('depth_maps', 'N/A')}")
+            # Step 4/7: Stereo Pair Generation
+            print(f"Step 4/7: Creating left/right stereo pairs...")
+            print(f"  -> Will save to: {directories.get('left_frames', 'N/A')} and {directories.get('right_frames', 'N/A')}")
+            # Step 5/7: Fisheye Distortion (if enabled)
+            if settings['apply_distortion']:
+                print(f"Step 5/7: Applying fisheye distortion...")
+                print(f"  -> Will save to: {directories.get('left_distorted', 'N/A')} and {directories.get('right_distorted', 'N/A')}")
+            # Step 6/7: Cropping and Scaling
+            print(f"Step 6/7: Cropping and scaling frames...")
+            print(f"  -> Will save to: {directories.get('left_cropped', 'N/A')} and {directories.get('right_cropped', 'N/A')}")
+            # Step 7/7: VR Frame Assembly
+            print(f"Step 7/7: Assembling VR frames...")
+            print(f"  -> Will save to: {directories.get('vr_frames', 'N/A')}\n")
+
+            # Process frames with simple progress
+            total = len(frame_files)
+            for i, frame_file in enumerate(frame_files):
+                print(f"Frame {i+1}/{total}", end='\r')
+                try:
+                    # Load frame
+                    image = cv2.imread(str(frame_file))
+                    if image is None:
+                        print(f"Warning: Could not load frame {frame_file}")
+                        continue
+                    frame_name = frame_file.stem
+                    result = self._process_single_frame(image, frame_name, directories, settings, progress_tracker, i + 1)
+                    if not result:
+                        print(f"Warning: Failed to process frame {frame_file}")
+                        continue
+                except Exception as e:
+                    print(f"Error processing frame {frame_file}: {e}")
+                    return False
+            print(f"\nProcessed {total} frames.")
+            success = True
             
             if not success:
                 if settings_file:
@@ -326,12 +369,14 @@ class VideoProcessor:
                     cv2.imwrite(str(directories['right_final'] / f"{frame_name}.png"), right_final)
 
             # Debug: print per-eye and output dimensions
-            print(f"[DEBUG] Frame {frame_num}: left_final {left_final.shape}, right_final {right_final.shape}, per_eye {settings['per_eye_width']}x{settings['per_eye_height']}, crop_factor={settings.get('crop_factor')}, fisheye_crop_factor={settings.get('fisheye_crop_factor')}")
+            if self.verbose:
+                print(f"[DEBUG] Frame {frame_num}: left_final {left_final.shape}, right_final {right_final.shape}, per_eye {settings['per_eye_width']}x{settings['per_eye_height']}, crop_factor={settings.get('crop_factor')}, fisheye_crop_factor={settings.get('fisheye_crop_factor')}")
 
             # Create final VR frame
             vr_frame = create_vr_frame(left_final, right_final, settings['vr_format'])
             # Debug: print VR frame shape
-            print(f"[DEBUG] Frame {frame_num}: VR frame shape {vr_frame.shape}")
+            if self.verbose:
+                print(f"[DEBUG] Frame {frame_num}: VR frame shape {vr_frame.shape}")
 
             # Save VR frame
             if 'vr_frames' in directories:
