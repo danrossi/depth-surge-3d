@@ -207,9 +207,6 @@ Thumbs.db
 *.sublime-workspace
 
 # External repositories and dependencies (auto-downloaded)
-depth_anything_v2_repo/
-depth_anything_v2/
-Depth-Anything-V2/
 video_depth_anything_repo/
 Video-Depth-Anything/
 

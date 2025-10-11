@@ -12,21 +12,12 @@ from pathlib import Path
 PROJECT_NAME = "Depth Surge 3D"
 DEFAULT_OUTPUT_DIR = "./output"
 
-# Model configuration
-DEFAULT_MODEL_PATH = "models/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
-DEFAULT_VIDEO_MODEL_PATH = "models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth"
-DEPTH_ANYTHING_REPO_DIR = "depth_anything_v2_repo"
+# Model configuration (Video-Depth-Anything only)
+DEFAULT_MODEL_PATH = "models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth"
 VIDEO_DEPTH_ANYTHING_REPO_DIR = "video_depth_anything_repo"
 
+# Video model configurations
 MODEL_CONFIGS = {
-    'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
-    'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
-    'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
-    'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
-}
-
-# Video model configurations (Video-Depth-Anything)
-VIDEO_MODEL_CONFIGS = {
     'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384], 'num_frames': 32},
     'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768], 'num_frames': 32},
     'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024], 'num_frames': 32},
@@ -38,7 +29,6 @@ DEFAULT_SETTINGS = {
     "focal_length": 1000,
     "vr_format": "side_by_side",
     "vr_resolution": "auto",
-    "processing_mode": "serial",
     "fisheye_projection": "stereographic",
     "fisheye_fov": 105,  # degrees
     "crop_factor": 1.5,  # default: 1.5 (matches user preference)
@@ -50,7 +40,7 @@ DEFAULT_SETTINGS = {
     "preserve_audio": True,
     "keep_intermediates": True,
     "apply_distortion": True,
-    "output_dir": "./output",  # Add missing output_dir
+    "output_dir": "./output",
     "experimental_frame_interpolation": False,  # Experimental feature with quality warnings
 }
 
@@ -93,9 +83,9 @@ RESOLUTION_CATEGORIES = {
 
 # Progress tracking configuration
 PROGRESS_UPDATE_INTERVAL = 0.1  # seconds
-BATCH_PROCESSING_STEPS = [
+PROCESSING_STEPS = [
     "Frame Extraction",
-    "Super Sampling", 
+    "Super Sampling",
     "Depth Map Generation",
     "Stereo Pair Creation",
     "Fisheye Distortion",
@@ -145,27 +135,14 @@ INTERMEDIATE_DIRS = {
     "vr_frames": "99_vr_frames",            # Final VR frames (used by FFmpeg)
 }
 
-# Model download URLs
+# Model download URLs (Video-Depth-Anything)
 MODEL_DOWNLOAD_URLS = {
-    "small": "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/depth_anything_v2_vits.pth",
-    "base": "https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/depth_anything_v2_vitb.pth",
-    "large": "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth",
-}
-
-MODEL_PATHS = {
-    "small": "models/Depth-Anything-V2-Small/depth_anything_v2_vits.pth",
-    "base": "models/Depth-Anything-V2-Base/depth_anything_v2_vitb.pth",
-    "large": "models/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth",
-}
-
-# Video model download URLs (Video-Depth-Anything)
-VIDEO_MODEL_DOWNLOAD_URLS = {
     "small": "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth",
     "base": "https://huggingface.co/depth-anything/Video-Depth-Anything-Base/resolve/main/video_depth_anything_vitb.pth",
     "large": "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth",
 }
 
-VIDEO_MODEL_PATHS = {
+MODEL_PATHS = {
     "small": "models/Video-Depth-Anything-Small/video_depth_anything_vits.pth",
     "base": "models/Video-Depth-Anything-Base/video_depth_anything_vitb.pth",
     "large": "models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth",
@@ -173,8 +150,8 @@ VIDEO_MODEL_PATHS = {
 
 # Error messages
 ERROR_MESSAGES = {
-    "model_not_found": "Model file not found. Please run ./download_models.sh to download required models.",
-    "repo_not_found": "Depth-Anything-V2 repository not found. Please run ./setup.sh to download dependencies.",
+    "model_not_found": "Model file not found. Please download Video-Depth-Anything model.",
+    "repo_not_found": "Video-Depth-Anything repository not found. Please clone from https://github.com/DepthAnything/Video-Depth-Anything",
     "invalid_video": "Invalid video file or format not supported.",
     "insufficient_memory": "Insufficient GPU memory. Try using a smaller model or CPU processing.",
     "ffmpeg_not_found": "FFmpeg not found. Please install FFmpeg for video processing.",

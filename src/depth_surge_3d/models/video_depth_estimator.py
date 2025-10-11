@@ -15,8 +15,8 @@ import torch
 import numpy as np
 
 from ..core.constants import (
-    DEFAULT_VIDEO_MODEL_PATH, VIDEO_DEPTH_ANYTHING_REPO_DIR, VIDEO_MODEL_CONFIGS,
-    VIDEO_MODEL_DOWNLOAD_URLS, VIDEO_MODEL_PATHS, ERROR_MESSAGES
+    DEFAULT_MODEL_PATH, VIDEO_DEPTH_ANYTHING_REPO_DIR, MODEL_CONFIGS,
+    MODEL_DOWNLOAD_URLS, MODEL_PATHS, ERROR_MESSAGES
 )
 
 
@@ -59,7 +59,7 @@ class VideoDepthEstimator:
                 print(f"Cannot determine model type from path: {self.model_path}")
                 return False
 
-            self.model_config = VIDEO_MODEL_CONFIGS[model_type]
+            self.model_config = MODEL_CONFIGS[model_type]
 
             # Import and load model
             repo_path = Path(VIDEO_DEPTH_ANYTHING_REPO_DIR)
@@ -79,7 +79,7 @@ class VideoDepthEstimator:
         except Exception as e:
             print(f"Error loading video model: {e}")
             print(f"Try downloading the model manually from:")
-            print(f"  {VIDEO_MODEL_DOWNLOAD_URLS.get(model_type, 'Unknown')}")
+            print(f"  {MODEL_DOWNLOAD_URLS.get(model_type, 'Unknown')}")
             return False
 
     def _ensure_dependencies(self) -> bool:
@@ -110,11 +110,11 @@ class VideoDepthEstimator:
 
         # Determine download URL
         model_type = self._get_model_type(self.model_path)
-        if not model_type or model_type not in VIDEO_MODEL_DOWNLOAD_URLS:
+        if not model_type or model_type not in MODEL_DOWNLOAD_URLS:
             print("Cannot determine model download URL")
             return False
 
-        download_url = VIDEO_MODEL_DOWNLOAD_URLS[model_type]
+        download_url = MODEL_DOWNLOAD_URLS[model_type]
 
         try:
             print(f"Downloading video model to {self.model_path}...")
@@ -234,6 +234,6 @@ def create_video_depth_estimator(
         Configured VideoDepthEstimator instance
     """
     if model_path is None:
-        model_path = DEFAULT_VIDEO_MODEL_PATH
+        model_path = DEFAULT_MODEL_PATH
 
     return VideoDepthEstimator(model_path, device, metric)

@@ -15,7 +15,7 @@ try:
 except ImportError:
     HAS_TQDM = False
 
-from ..core.constants import PROGRESS_UPDATE_INTERVAL, BATCH_PROCESSING_STEPS
+from ..core.constants import PROGRESS_UPDATE_INTERVAL, PROCESSING_STEPS
 
 # Processing phases with weight distribution
 PROCESSING_PHASES = {
@@ -126,14 +126,10 @@ class ProgressTracker:
         self.reporter = reporter or ConsoleProgressReporter()
         self.start_time = time.time()
         
-        if processing_mode == 'serial':
-            self.current_frame = 0
-            self.current_step = ""
-        else:  # batch mode
-            self.steps = BATCH_PROCESSING_STEPS.copy()
-            self.current_step_index = 0
-            self.step_progress = 0
-            self.step_total = 0
+        self.steps = PROCESSING_STEPS.copy()
+        self.current_step_index = 0
+        self.step_progress = 0
+        self.step_total = 0
     
     def update_serial(self, frame_num: int, step_description: str) -> None:
         """Update progress for serial processing."""
@@ -184,18 +180,11 @@ class ProgressTracker:
         step_progress: Optional[int] = None,
         step_total: Optional[int] = None
     ) -> None:
-        """
-        Compatibility method for VideoProcessor interface.
-        Routes to appropriate update method based on processing mode.
-        """
-        if self.processing_mode == 'batch':
-            if step_name:
-                self.update_batch_step(step_name, step_progress or 0, step_total or 0)
-            elif step_progress is not None:
-                self.update_batch_progress(step_progress, step_total)
-        else:  # serial mode
-            if frame_num is not None:
-                self.update_serial(frame_num, stage)
+        """Update progress for video processing."""
+        if step_name:
+            self.update_batch_step(step_name, step_progress or 0, step_total or 0)
+        elif step_progress is not None:
+            self.update_batch_progress(step_progress, step_total)
 
     def finish(self, message: str = "Processing complete") -> None:
         """Finish progress tracking."""
@@ -220,12 +209,10 @@ class ProgressCallback:
         self.last_update_time = 0
         self.current_phase = "extraction"
         
-        # Batch mode specific
-        if processing_mode == 'batch':
-            self.steps = BATCH_PROCESSING_STEPS.copy()
-            self.current_step_index = 0
-            self.step_progress = 0
-            self.step_total = 0
+        self.steps = PROCESSING_STEPS.copy()
+        self.current_step_index = 0
+        self.step_progress = 0
+        self.step_total = 0
     
     def update_progress(
         self, 
