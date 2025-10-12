@@ -84,6 +84,16 @@ class VideoProcessor:
 
             # Step 1: Extract frames
             print("Step 1/7: Extracting frames from video...")
+            if progress_callback:
+                progress_callback.update_progress(
+                    "Extracting frames from video",
+                    phase="extraction",
+                    frame_num=0,
+                    step_name="Frame Extraction",
+                    step_progress=0,
+                    step_total=1
+                )
+
             frame_files = self._extract_frames(video_path, directories, video_properties, settings)
             if not frame_files:
                 print("Error: No frames extracted from video")
@@ -95,6 +105,16 @@ class VideoProcessor:
 
             print(f"  -> Extracted {len(frame_files)} frames")
             print(f"  -> Saved to: {directories.get('frames', 'N/A')}\n")
+
+            if progress_callback:
+                progress_callback.update_progress(
+                    "Frame extraction complete",
+                    phase="extraction",
+                    frame_num=len(frame_files),
+                    step_name="Frame Extraction",
+                    step_progress=1,
+                    step_total=1
+                )
 
             # Initialize progress tracker
             if progress_callback:
@@ -133,7 +153,7 @@ class VideoProcessor:
                 "Loading frames",
                 phase="depth_estimation",
                 frame_num=0,
-                step_name="Frame Extraction",
+                step_name="Frame Loading",
                 step_progress=0,
                 step_total=len(frame_files)
             )
@@ -199,6 +219,16 @@ class VideoProcessor:
 
             # Step 7: Create final video
             print("Step 7/7: Creating final video with audio...")
+            if progress_callback:
+                progress_callback.update_progress(
+                    "Creating final video",
+                    phase="video_creation",
+                    frame_num=0,
+                    step_name="Video Creation",
+                    step_progress=0,
+                    step_total=1
+                )
+
             success = self._create_output_video(
                 directories['vr_frames'], output_path, video_path, settings
             )
@@ -211,6 +241,16 @@ class VideoProcessor:
                 )
                 print(f"  -> Created final video: {output_filename}")
                 print(f"  -> Saved to: {output_path / output_filename}\n")
+
+                if progress_callback:
+                    progress_callback.update_progress(
+                        "Video creation complete",
+                        phase="video_creation",
+                        frame_num=len(frames),
+                        step_name="Video Creation",
+                        step_progress=1,
+                        step_total=1
+                    )
 
             progress_tracker.finish("Video processing complete")
 
@@ -306,7 +346,7 @@ class VideoProcessor:
                         "Loading frames",
                         phase="depth_estimation",
                         frame_num=i + 1,
-                        step_name="Frame Extraction",
+                        step_name="Frame Loading",
                         step_progress=i + 1,
                         step_total=len(frame_files)
                     )

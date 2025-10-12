@@ -192,113 +192,100 @@ class ProgressCallback:
         self.current_frame = 0
         self.last_update_time = 0
         self.current_phase = "extraction"  # extraction, processing, video
-        
-        # Batch mode specific
-        if processing_mode == 'batch':
-            self.steps = [
-                "Frame Extraction",
-                "Super Sampling", 
-                "Depth Map Generation",
-                "Stereo Pair Creation",
-                "Fisheye Distortion",
-                "Final Processing",
-                "Video Creation"
-            ]
-            self.current_step_index = 0
-            self.step_progress = 0
-            self.step_total = 0
+        self.step_start_times = {}  # Track start time for each step
+        self.current_step_name = None
+
+        # Step tracking (used for all modes)
+        # Note: These must match the step names sent from video_processor.py
+        self.steps = [
+            "Frame Extraction",      # Step 1: FFmpeg extracts frames
+            "Depth Map Generation",  # Step 2: AI generates depth maps
+            "Frame Loading",         # Step 3: Load frames for stereo
+            "Stereo Pair Creation",  # Step 4: Create L/R stereo pairs
+            "Fisheye Distortion",    # Step 5: Apply distortion
+            "Final Processing",      # Step 6: Create VR frames
+            "Video Creation"         # Step 7: FFmpeg creates video
+        ]
+        self.current_step_index = 0
+        self.step_progress = 0
+        self.step_total = 0
         
     def update_progress(self, stage, frame_num=None, phase=None, step_name=None, step_progress=None, step_total=None):
         global current_processing
         import time
-        
+
         # Check if stop has been requested
         if current_processing.get('stop_requested', False):
             raise InterruptedError("Processing stopped by user request")
-        
+
         # Throttle updates to avoid threading issues
         current_time = time.time()
-        if current_time - self.last_update_time < 0.1:  # Limit to 10 updates per second  
+        if current_time - self.last_update_time < 0.1:  # Limit to 10 updates per second
             return
         self.last_update_time = current_time
-        
+
         # Update phase if provided
         if phase:
             self.current_phase = phase
-        
+
+        # Track step changes and timing
+        if step_name and step_name != self.current_step_name:
+            # New step started
+            if self.current_step_name and self.current_step_name in self.step_start_times:
+                # Previous step finished - calculate duration
+                duration = current_time - self.step_start_times[self.current_step_name]
+                print(f"  -> Completed in {duration:.2f}s\n")
+
+            self.current_step_name = step_name
+            self.step_start_times[step_name] = current_time
+
+            # Update step index
+            if step_name in self.steps:
+                self.current_step_index = self.steps.index(step_name)
+
+        # Update step progress
+        if step_progress is not None:
+            self.step_progress = step_progress
+        if step_total is not None:
+            self.step_total = step_total
+
         if frame_num is not None:
             self.current_frame = frame_num
             current_processing['current_frame'] = frame_num
-            
+
         current_processing['stage'] = stage
-        
-        # Calculate progress based on processing mode
-        if self.processing_mode == 'batch':
-            # Batch mode: step-based progress
-            if step_name and step_name in self.steps:
-                self.current_step_index = self.steps.index(step_name)
-            if step_progress is not None:
-                self.step_progress = step_progress
-            if step_total is not None:
-                self.step_total = step_total
-            
-            # Overall progress based on steps
-            step_progress_ratio = (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
-            overall_progress = ((self.current_step_index + step_progress_ratio) / len(self.steps)) * 100
-            progress = round(overall_progress, 1)
-            
-            # Update current processing for batch mode
-            current_processing['step_name'] = step_name or self.steps[self.current_step_index] if self.current_step_index < len(self.steps) else "Processing"
-            current_processing['step_progress'] = self.step_progress
-            current_processing['step_total'] = self.step_total
-            current_processing['step_index'] = self.current_step_index
-            
-        else:
-            # Serial mode: frame-based progress (original behavior)
-            if self.current_phase == "extraction":
-                # Extraction phase: 0-20%
-                progress = (self.current_frame / self.total_frames * 20) if self.total_frames > 0 else 0
-            elif self.current_phase in ["super_sampling", "depth_estimation", "stereo_generation", "distortion", "vr_assembly"]:
-                # Processing phases: 20-85% 
-                frame_progress = (self.current_frame / self.total_frames * 65) if self.total_frames > 0 else 0
-                progress = 20 + frame_progress
-            elif self.current_phase == "video_creation":
-                # Video creation phase: 85-100%
-                progress = 85 + 15  # Set to 100% for video phase
-            else:
-                progress = (self.current_frame / self.total_frames * 100) if self.total_frames > 0 else 0
-            
+
+        # Calculate overall progress (assume equal time for all 7 steps)
+        step_progress_ratio = (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
+        overall_progress = ((self.current_step_index + step_progress_ratio) / len(self.steps)) * 100
+        progress = round(overall_progress, 1)
+
         current_processing['progress'] = round(progress, 1)
         current_processing['phase'] = self.current_phase
         current_processing['processing_mode'] = self.processing_mode
-        
-        # Emit progress update
+        current_processing['step_name'] = step_name or self.current_step_name
+        current_processing['step_progress'] = self.step_progress
+        current_processing['step_total'] = self.step_total
+        current_processing['step_index'] = self.current_step_index
+
+        # Emit progress update (always include step data for UI)
         progress_data = {
             'progress': current_processing['progress'],
             'stage': stage,
             'current_frame': self.current_frame,
             'total_frames': self.total_frames,
             'phase': self.current_phase,
-            'processing_mode': self.processing_mode
+            'processing_mode': self.processing_mode,
+            'step_name': self.current_step_name or '',
+            'step_progress': self.step_progress,
+            'step_total': self.step_total,
+            'step_index': self.current_step_index,
+            'total_steps': len(self.steps)
         }
-        
-        # Add batch-specific data
-        if self.processing_mode == 'batch':
-            progress_data.update({
-                'step_name': current_processing.get('step_name', ''),
-                'step_progress': self.step_progress,
-                'step_total': self.step_total,
-                'step_index': self.current_step_index,
-                'total_steps': len(self.steps)
-            })
-        
-        # Console output
-        if self.processing_mode == 'batch':
-            step_name = current_processing.get('step_name', 'Processing')
-            step_percent = (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
-            print(f"[BATCH] Progress: {progress_data['progress']:.1f}% - Step {self.current_step_index + 1}/{len(self.steps)}: {step_name} ({step_percent:.1f}%)")
-        else:
-            print(f"Progress: {progress_data['progress']:.1f}% - {stage} - Frame {self.current_frame}/{self.total_frames} - Phase: {self.current_phase}")
+
+        # Console output - show both overall and step progress
+        step_percent = (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
+        print(f"Overall: {progress:.1f}% | Step: {step_percent:.0f}% ({self.step_progress}/{self.step_total}) | {stage}")
         
         try:
             socketio.emit('progress_update', progress_data, room=self.session_id)
