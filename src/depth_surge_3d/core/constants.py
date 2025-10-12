@@ -137,16 +137,32 @@ INTERMEDIATE_DIRS = {
 
 # Model download URLs (Video-Depth-Anything)
 # Keys match encoder types in MODEL_CONFIGS (vits, vitb, vitl)
+# Relative depth models (trained on general scenes)
 MODEL_DOWNLOAD_URLS = {
     "vits": "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits.pth",
     "vitb": "https://huggingface.co/depth-anything/Video-Depth-Anything-Base/resolve/main/video_depth_anything_vitb.pth",
     "vitl": "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth",
 }
 
+# Metric depth models (trained on Virtual KITTI and IRS for accurate depth values)
+MODEL_DOWNLOAD_URLS_METRIC = {
+    "vits": "https://huggingface.co/depth-anything/Video-Depth-Anything-Small/resolve/main/video_depth_anything_vits_metric.pth",
+    "vitb": "https://huggingface.co/depth-anything/Video-Depth-Anything-Base/resolve/main/video_depth_anything_vitb_metric.pth",
+    "vitl": "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl_metric.pth",
+}
+
+# Model paths (relative depth)
 MODEL_PATHS = {
     "vits": "models/Video-Depth-Anything-Small/video_depth_anything_vits.pth",
     "vitb": "models/Video-Depth-Anything-Base/video_depth_anything_vitb.pth",
     "vitl": "models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth",
+}
+
+# Model paths (metric depth)
+MODEL_PATHS_METRIC = {
+    "vits": "models/Video-Depth-Anything-Small/video_depth_anything_vits_metric.pth",
+    "vitb": "models/Video-Depth-Anything-Base/video_depth_anything_vitb_metric.pth",
+    "vitl": "models/Video-Depth-Anything-Large/video_depth_anything_vitl_metric.pth",
 }
 
 # Error messages

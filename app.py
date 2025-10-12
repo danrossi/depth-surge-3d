@@ -24,7 +24,7 @@ import shutil
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 # Import our constants
-from src.depth_surge_3d.core.constants import INTERMEDIATE_DIRS, MODEL_PATHS
+from src.depth_surge_3d.core.constants import INTERMEDIATE_DIRS, MODEL_PATHS, MODEL_PATHS_METRIC
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
@@ -328,15 +328,25 @@ def process_video_async(session_id, video_path, settings, output_dir):
         
         # Initialize projector with Video-Depth-Anything model
         # Use model_size setting to select the appropriate model
-        model_size = settings.get('model_size', 'vitl')  # Default to Large if not specified
-        model_path = settings.get('model_path', MODEL_PATHS.get(model_size, MODEL_PATHS['vitl']))
+        model_size = settings.get('model_size', 'vitb')  # Default to Base for 16GB GPUs
+        use_metric = settings.get('use_metric_depth', True)  # Default to metric depth
+
+        # Select the appropriate model path based on size and metric/relative
+        if use_metric:
+            model_paths_dict = MODEL_PATHS_METRIC
+            depth_type = "Metric"
+        else:
+            model_paths_dict = MODEL_PATHS
+            depth_type = "Relative"
+
+        model_path = settings.get('model_path', model_paths_dict.get(model_size, MODEL_PATHS_METRIC['vitb']))
 
         device = settings.get('device', 'auto')
         if device == 'auto':
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        print(f"Loading {model_size.upper()} model from: {model_path}")
-        projector = create_stereo_projector(model_path, device)
+        print(f"Loading {model_size.upper()} {depth_type} Depth model from: {model_path}")
+        projector = create_stereo_projector(model_path, device, metric=use_metric)
         
         # Ensure the model is loaded before processing
         if not projector.depth_estimator.load_model():
