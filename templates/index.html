@@ -669,11 +669,21 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label">Start Time (mm:ss or hh:mm:ss)</label>
-                            <input type="text" class="form-control time-input" id="startTime" placeholder="00:00" value="">
+                            <div class="input-group">
+                                <input type="text" class="form-control time-input" id="startTime" placeholder="00:00" value="">
+                                <button class="btn btn-outline-secondary" type="button" id="resetStartTime" title="Reset to 00:00">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">End Time (mm:ss or hh:mm:ss)</label>
-                            <input type="text" class="form-control time-input" id="endTime" placeholder="00:30" value="">
+                            <div class="input-group">
+                                <input type="text" class="form-control time-input" id="endTime" placeholder="00:30" value="">
+                                <button class="btn btn-outline-secondary" type="button" id="resetEndTime" title="Reset to video end">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Range Info -->
@@ -1595,6 +1605,24 @@
             }
         });
 
+        // Reset start time to 00:00
+        document.getElementById('resetStartTime').addEventListener('click', function() {
+            document.getElementById('startTime').value = '00:00';
+            updateRangeInfo();
+            saveSettings();
+        });
+
+        // Reset end time to video duration
+        document.getElementById('resetEndTime').addEventListener('click', function() {
+            if (currentVideoInfo) {
+                const minutes = Math.floor(currentVideoInfo.duration / 60);
+                const seconds = Math.floor(currentVideoInfo.duration % 60);
+                document.getElementById('endTime').value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                updateRangeInfo();
+                saveSettings();
+            }
+        });
+
         // Show progress panel
         function showProgressPanel() {
             document.querySelector('.progress-container').style.display = 'block';
@@ -2136,6 +2164,8 @@
                 targetFps: 'original',
                 superSample: 'auto',
                 device: 'auto',
+                modelSize: 'vitb',
+                depthModelType: 'metric',
                 processingMode: 'serial',
                 preserveAudio: true,
                 keepIntermediates: true,
@@ -2171,7 +2201,7 @@
         function setupAutoSave() {
             const settingsElements = [
                 'startTime', 'endTime', 'vrFormat', 'vrResolution', 'baseline', 'focalLength',
-                'resolution', 'targetFps', 'superSample', 'device', 'processingMode', 'preserveAudio', 'keepIntermediates',
+                'resolution', 'targetFps', 'superSample', 'device', 'modelSize', 'depthModelType', 'processingMode', 'preserveAudio', 'keepIntermediates',
                 'applyDistortion', 'fisheyeProjection', 'fisheyeFov', 'cropFactor', 'fisheyeCropFactor', 'holeFillQuality',
                 'experimentalFrameInterpolation'
             ];
