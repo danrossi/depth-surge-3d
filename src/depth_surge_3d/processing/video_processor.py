@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import time
+import torch
 
 from ..models.video_depth_estimator import VideoDepthEstimator
 from ..utils.progress import create_progress_tracker
@@ -279,14 +280,30 @@ class VideoProcessor:
             return None
 
         frame_h, frame_w = sample_frame.shape[:2]
+        megapixels = (frame_h * frame_w) / 1_000_000
 
-        # Adaptive chunk size based on resolution
-        if frame_h * frame_w > 2000 * 2000:  # >4MP (e.g., 4K)
+        print(f"  Frame resolution: {frame_w}x{frame_h} ({megapixels:.1f}MP)")
+
+        # Very aggressive chunking for 4K with limited VRAM
+        # Model uses ~9GB, only ~6GB free
+        if megapixels > 8.0:  # >8MP (4K is ~8.3MP)
+            chunk_size = 8   # Tiny chunks for 4K
+            input_size = 384  # Reduce depth model input resolution
+        elif megapixels > 2.0:  # >2MP
             chunk_size = 16  # Small chunks for high-res
+            input_size = 448
         else:
             chunk_size = 32  # Standard chunks
+            input_size = 518
 
-        print(f"  Processing in chunks of {chunk_size} frames...")
+        print(f"  Processing in chunks of {chunk_size} frames (input_size={input_size})...")
+
+        # Clear GPU cache before processing to maximize available VRAM
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            mem_free = torch.cuda.mem_get_info()[0] / (1024**3)  # Convert to GB
+            print(f"  GPU memory freed: {mem_free:.2f} GB available")
 
         all_depth_maps = []
         num_frames = len(frame_files)
@@ -327,7 +344,7 @@ class VideoProcessor:
                 chunk_depth_maps = self.depth_estimator.estimate_depth_batch(
                     chunk_frames_array,
                     target_fps=target_fps,
-                    input_size=518,
+                    input_size=input_size,
                     fp32=False
                 )
 
@@ -345,6 +362,10 @@ class VideoProcessor:
                 del chunk_frames
                 del chunk_frames_array
                 del chunk_depth_maps
+
+                # Clear GPU cache between chunks
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
                 # Update progress
                 progress_tracker.update_progress(
