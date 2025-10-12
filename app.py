@@ -281,11 +281,14 @@ class ProgressCallback:
         # Console output - show both overall and step progress
         step_percent = (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
         print(f"Overall: {progress:.1f}% | Step: {step_percent:.0f}% ({self.step_progress}/{self.step_total}) | {stage}")
-        
+
         try:
-            socketio.emit('progress_update', progress_data, room=self.session_id)
+            # Emit with app context for background thread compatibility
+            with app.app_context():
+                socketio.emit('progress_update', progress_data, room=self.session_id)
         except Exception as e:
-            vprint(f"Error emitting progress: {e}")
+            # Always print emit errors (not just in verbose mode) for debugging
+            print(f"⚠️  Error emitting progress: {e}")
             # Don't let SocketIO errors stop processing - continue silently
     
     def get_step_duration(self):
@@ -299,12 +302,13 @@ class ProgressCallback:
         """Finish progress tracking (compatibility with ProgressTracker interface)."""
         print(f"{message}")
         try:
-            socketio.emit('processing_complete', {
-                'success': True,
-                'message': message
-            }, room=self.session_id)
+            with app.app_context():
+                socketio.emit('processing_complete', {
+                    'success': True,
+                    'message': message
+                }, room=self.session_id)
         except Exception as e:
-            vprint(f"Error emitting completion: {e}")
+            print(f"⚠️  Error emitting completion: {e}")
 
 def process_video_async(session_id, video_path, settings, output_dir):
     """Process video in background thread"""
@@ -413,32 +417,35 @@ def process_video_async(session_id, video_path, settings, output_dir):
         
         # Processing complete
         try:
-            socketio.emit('processing_complete', {
-                'success': True,
-                'output_dir': str(output_dir),
-                'message': 'Video processing completed successfully!'
-            }, room=session_id)
+            with app.app_context():
+                socketio.emit('processing_complete', {
+                    'success': True,
+                    'output_dir': str(output_dir),
+                    'message': 'Video processing completed successfully!'
+                }, room=session_id)
         except Exception as e:
-            vprint(f"Error emitting completion: {e}")
+            print(f"⚠️  Error emitting completion: {e}")
         
     except InterruptedError as e:
         # Handle user-requested stop
         try:
-            socketio.emit('processing_stopped', {
-                'success': True,
-                'message': str(e)
-            }, room=session_id)
+            with app.app_context():
+                socketio.emit('processing_stopped', {
+                    'success': True,
+                    'message': str(e)
+                }, room=session_id)
         except Exception as emit_error:
-            vprint(f"Error emitting stop: {emit_error}")
+            print(f"⚠️  Error emitting stop: {emit_error}")
         
     except Exception as e:
         try:
-            socketio.emit('processing_error', {
-                'success': False,
-                'error': str(e)
-            }, room=session_id)
+            with app.app_context():
+                socketio.emit('processing_error', {
+                    'success': False,
+                    'error': str(e)
+                }, room=session_id)
         except Exception as emit_error:
-            vprint(f"Error emitting error: {emit_error}")
+            print(f"⚠️  Error emitting error: {emit_error}")
         print(f"Processing error: {e}")  # Always print errors
         
     finally:
