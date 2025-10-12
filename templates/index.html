@@ -619,37 +619,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Time Range Selection -->
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h5><i class="fas fa-clock"></i> Time Range Selection</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Start Time (mm:ss or hh:mm:ss)</label>
-                            <input type="text" class="form-control time-input" id="startTime" placeholder="00:00" value="">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">End Time (mm:ss or hh:mm:ss)</label>
-                            <input type="text" class="form-control time-input" id="endTime" placeholder="00:30" value="">
-                        </div>
-                        
-                        <!-- Range Info -->
-                        <div id="rangeInfo" class="alert alert-info" style="display: none;">
-                            <div class="row">
-                                <div class="col-6">
-                                    <strong>Duration:</strong> <span id="rangeDuration">--</span>
-                                </div>
-                                <div class="col-6">
-                                    <strong>Est. Frames:</strong> <span id="rangeFrames">--</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-
-                    </div>
-                </div>
             </div>
 
             <!-- Resume Processing and System Info -->
@@ -688,6 +657,35 @@
                         <div class="stat-item">
                             <div class="stat-value" id="deviceMode">--</div>
                             <div class="stat-label">Processing Mode</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Range Selection -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-clock"></i> Time Range Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Start Time (mm:ss or hh:mm:ss)</label>
+                            <input type="text" class="form-control time-input" id="startTime" placeholder="00:00" value="">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">End Time (mm:ss or hh:mm:ss)</label>
+                            <input type="text" class="form-control time-input" id="endTime" placeholder="00:30" value="">
+                        </div>
+
+                        <!-- Range Info -->
+                        <div id="rangeInfo" class="alert alert-info" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Duration:</strong> <span id="rangeDuration">--</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Est. Frames:</strong> <span id="rangeFrames">--</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -979,8 +977,108 @@
                             <h5><i class="fas fa-spinner fa-spin"></i> Processing Progress</h5>
                         </div>
                         <div class="card-body">
-                            <!-- Progress UI removed -->
-                            <!-- Only show output directory and batch info -->
+                            <!-- Overall Progress -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong>Overall Progress</strong>
+                                    <span id="overallProgressText">0%</span>
+                                </div>
+                                <div class="progress" style="height: 24px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                                         role="progressbar"
+                                         id="overallProgressBar"
+                                         style="width: 0%;"
+                                         aria-valuenow="0"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100">
+                                        <span id="overallProgressPhase">Initializing...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step Progress Bars -->
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-2"><strong>Processing Steps</strong></small>
+
+                                <!-- Step 1: Frame Extraction -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-film"></i> 1. Extract Frames</span>
+                                        <span id="step1Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step1Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Depth Maps -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-layer-group"></i> 2. Generate Depth Maps</span>
+                                        <span id="step2Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step2Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Load Frames -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-image"></i> 3. Load Frames</span>
+                                        <span id="step3Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step3Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 4: Stereo Pairs -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-glasses"></i> 4. Create Stereo Pairs</span>
+                                        <span id="step4Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step4Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 5: Fisheye Distortion -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-circle-notch"></i> 5. Apply Distortion</span>
+                                        <span id="step5Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step5Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 6: VR Frames -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-vr-cardboard"></i> 6. Create VR Frames</span>
+                                        <span id="step6Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step6Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 7: Final Video -->
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                                        <span><i class="fas fa-video"></i> 7. Create Final Video</span>
+                                        <span id="step7Progress">0%</span>
+                                    </div>
+                                    <div class="progress sub-progress">
+                                        <div class="progress-bar bg-info" id="step7Bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Batch Directory Info -->
                             <div class="mb-3" id="currentBatchDirectory" style="display: none;">
                                 <h6><i class="fas fa-folder"></i> Current Batch Directory</h6>
                                 <div class="d-flex justify-content-between align-items-center">
@@ -1552,115 +1650,143 @@
 
         // Update progress
         function updateProgress(data) {
-            const progressBar = document.querySelector('.progress-bar');
-            const progressText = document.getElementById('progressText');
-            const progressPercent = document.getElementById('progressPercent');
-            
-            progressBar.style.width = data.progress + '%';
-            progressText.textContent = data.stage;
-            progressPercent.textContent = data.progress + '%';
-            
-            // Update frame counters
-            if (data.current_frame !== undefined) {
-                document.getElementById('currentFrame').textContent = data.current_frame;
-                document.getElementById('totalFrames').textContent = data.total_frames;
-                
-                // Calculate processing speed
-                const now = Date.now();
-                if (lastFrameTime && data.current_frame > 0) {
-                    const timeDiff = (now - lastFrameTime) / 1000;
-                    frameProcessingTimes.push(timeDiff);
-                    
-                    // Keep only last 10 measurements for moving average
-                    if (frameProcessingTimes.length > 10) {
-                        frameProcessingTimes.shift();
-                    }
-                    
-                    const avgTime = frameProcessingTimes.reduce((a, b) => a + b, 0) / frameProcessingTimes.length;
-                    const framesPerSecond = 1 / avgTime;
-                    document.getElementById('processingSpeed').textContent = framesPerSecond.toFixed(1);
-                    
-                    // Estimate remaining time
-                    const remainingFrames = data.total_frames - data.current_frame;
-                    const estimatedSeconds = remainingFrames * avgTime;
-                    const minutes = Math.floor(estimatedSeconds / 60);
-                    const seconds = Math.floor(estimatedSeconds % 60);
-                    document.getElementById('estimatedTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                }
-                lastFrameTime = now;
+            // Update overall progress bar
+            const overallBar = document.getElementById('overallProgressBar');
+            const overallText = document.getElementById('overallProgressText');
+            const overallPhase = document.getElementById('overallProgressPhase');
+
+            if (overallBar) {
+                overallBar.style.width = data.progress + '%';
+                overallBar.setAttribute('aria-valuenow', data.progress);
             }
-            
-            // Update sub-progress bars based on stage
-            updateSubProgress(data.stage, data.progress);
-            
-            // Remove old preview code - no longer needed
+            if (overallText) {
+                overallText.textContent = data.progress.toFixed(1) + '%';
+            }
+            if (overallPhase) {
+                overallPhase.textContent = data.stage || 'Processing...';
+            }
+
+            // Update step-specific progress bars
+            updateStepProgress(data);
         }
 
-        // Update sub-progress bars
-        function updateSubProgress(stage, overallProgress) {
-            const extractBar = document.getElementById('extractProgress');
-            const depthBar = document.getElementById('depthProgress');
-            const videoBar = document.getElementById('videoProgress');
-            
-            if (!extractBar || !depthBar || !videoBar) return;
-            
-            // Determine progress distribution based on stage
-            if (stage.toLowerCase().includes('extracting') || stage.toLowerCase().includes('enhancing') || stage.toLowerCase().includes('frame')) {
-                // Frame extraction phase (0-20%)
-                extractBar.style.width = Math.min(100, (overallProgress / 20) * 100) + '%';
-                depthBar.style.width = '0%';
-                videoBar.style.width = '0%';
-            } else if (stage.toLowerCase().includes('processing') || stage.toLowerCase().includes('depth') || /frame \d+/.test(stage.toLowerCase())) {
-                // Depth processing phase (20-85%)
-                extractBar.style.width = '100%';
-                if (overallProgress > 20) {
-                    depthBar.style.width = Math.min(100, ((overallProgress - 20) / 65) * 100) + '%';
+        // Map phase names to step numbers
+        const phaseToStep = {
+            'extraction': 1,
+            'depth_estimation': 2,
+            'stereo_generation': 4,
+            'distortion': 5,
+            'vr_assembly': 6,
+            'video_creation': 7
+        };
+
+        // Update individual step progress bars
+        function updateStepProgress(data) {
+            const phase = data.phase || 'extraction';
+            const stepNum = phaseToStep[phase] || 1;
+            const stepProgress = data.step_progress || 0;
+            const stepTotal = data.step_total || 1;
+            const stepPercent = stepTotal > 0 ? (stepProgress / stepTotal) * 100 : 0;
+
+            // Mark previous steps as complete (100%)
+            for (let i = 1; i <= 7; i++) {
+                const bar = document.getElementById(`step${i}Bar`);
+                const text = document.getElementById(`step${i}Progress`);
+
+                if (!bar || !text) continue;
+
+                if (i < stepNum) {
+                    // Previous steps: 100%
+                    bar.style.width = '100%';
+                    bar.classList.remove('bg-info');
+                    bar.classList.add('bg-success');
+                    text.textContent = '100%';
+                } else if (i === stepNum) {
+                    // Current step: show actual progress
+                    bar.style.width = stepPercent + '%';
+                    bar.classList.remove('bg-success');
+                    bar.classList.add('bg-info');
+                    text.textContent = stepPercent.toFixed(0) + '%';
+                } else {
+                    // Future steps: 0%
+                    bar.style.width = '0%';
+                    bar.classList.remove('bg-success');
+                    bar.classList.add('bg-info');
+                    text.textContent = '0%';
                 }
-                videoBar.style.width = '0%';
-            } else if (stage.toLowerCase().includes('video') || stage.toLowerCase().includes('audio') || stage.toLowerCase().includes('creating') || stage.toLowerCase().includes('final')) {
-                // Video assembly phase (85-100%)
-                extractBar.style.width = '100%';
-                depthBar.style.width = '100%';
-                if (overallProgress > 85) {
-                    videoBar.style.width = Math.min(100, ((overallProgress - 85) / 15) * 100) + '%';
+            }
+
+            // Handle step 3 (load frames) which is part of depth_estimation phase
+            if (phase === 'depth_estimation' && data.stage && data.stage.toLowerCase().includes('loading')) {
+                const bar = document.getElementById('step3Bar');
+                const text = document.getElementById('step3Progress');
+                if (bar && text) {
+                    bar.style.width = stepPercent + '%';
+                    bar.classList.add('bg-info');
+                    text.textContent = stepPercent.toFixed(0) + '%';
                 }
             }
         }
 
         // Handle processing complete
         function handleProcessingComplete(data) {
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.width = '100%';
-            progressBar.classList.remove('progress-bar-animated');
-            progressBar.classList.add('bg-success');
-            
-            document.getElementById('progressText').textContent = 'Processing complete!';
-            document.getElementById('progressPercent').textContent = '100%';
-            
+            const overallBar = document.getElementById('overallProgressBar');
+            const overallText = document.getElementById('overallProgressText');
+            const overallPhase = document.getElementById('overallProgressPhase');
+
+            if (overallBar) {
+                overallBar.style.width = '100%';
+                overallBar.classList.remove('progress-bar-animated');
+                overallBar.classList.add('bg-success');
+            }
+            if (overallText) {
+                overallText.textContent = '100%';
+            }
+            if (overallPhase) {
+                overallPhase.textContent = 'Complete!';
+            }
+
+            // Mark all steps as complete
+            for (let i = 1; i <= 7; i++) {
+                const bar = document.getElementById(`step${i}Bar`);
+                const text = document.getElementById(`step${i}Progress`);
+                if (bar && text) {
+                    bar.style.width = '100%';
+                    bar.classList.add('bg-success');
+                    text.textContent = '100%';
+                }
+            }
+
             // Hide stop button, show start button
             hideProgressPanel();
             currentSessionId = null;
-            
+
             // Show output directory card
             document.getElementById('outputPath').textContent = data.output_dir;
             document.getElementById('outputDirectoryCard').style.display = 'block';
-            
+
             document.getElementById('successMessage').textContent = data.message;
             new bootstrap.Modal(document.getElementById('successModal')).show();
         }
 
         // Handle processing error
         function handleProcessingError(data) {
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.classList.remove('progress-bar-animated');
-            progressBar.classList.add('bg-danger');
-            
-            document.getElementById('progressText').textContent = 'Processing failed';
-            
+            const overallBar = document.getElementById('overallProgressBar');
+            const overallPhase = document.getElementById('overallProgressPhase');
+
+            if (overallBar) {
+                overallBar.classList.remove('progress-bar-animated');
+                overallBar.classList.remove('bg-success');
+                overallBar.classList.add('bg-danger');
+            }
+            if (overallPhase) {
+                overallPhase.textContent = 'Processing failed';
+            }
+
             // Hide stop button, show start button
             hideProgressPanel();
             currentSessionId = null;
-            
+
             document.getElementById('errorMessage').textContent = data.error;
             new bootstrap.Modal(document.getElementById('errorModal')).show();
         }
