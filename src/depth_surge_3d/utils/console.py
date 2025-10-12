@@ -10,6 +10,7 @@ class Colors:
     # UI theme colors
     LIME_GREEN = '\033[38;2;57;255;20m'  # --accent-lime: #39ff14
     GREEN = '\033[38;2;0;255;65m'        # --accent-green: #00ff41
+    ELECTRIC_BLUE = '\033[38;2;0;217;255m'  # --accent-blue: #00d9ff (progress bar blue)
 
     # Standard colors
     RED = '\033[91m'
@@ -27,6 +28,7 @@ class Colors:
         """Disable all colors (for piped output or when colors not supported)."""
         Colors.LIME_GREEN = ''
         Colors.GREEN = ''
+        Colors.ELECTRIC_BLUE = ''
         Colors.RED = ''
         Colors.YELLOW = ''
         Colors.BLUE = ''
@@ -68,4 +70,18 @@ def bold(text: str) -> str:
 
 def step_complete(text: str) -> str:
     """Format step completion line with lime green arrow."""
-    return f"{Colors.LIME_GREEN}  -> {text}{Colors.RESET}"
+    return f"{Colors.LIME_GREEN}  -> {Colors.RESET}{text}"
+
+
+def saved_to(text: str) -> str:
+    """Format 'Saved to' line with electric blue arrow."""
+    return f"{Colors.ELECTRIC_BLUE}  -> {Colors.RESET}{text}"
+
+
+def title_bar(text: str) -> str:
+    """Format title with lime green === markers."""
+    # Extract the === markers and color them
+    if text.startswith("=== ") and text.endswith(" ==="):
+        content = text[4:-4]  # Extract content without === markers
+        return f"{Colors.LIME_GREEN}==={Colors.RESET} {content} {Colors.LIME_GREEN}==={Colors.RESET}"
+    return text

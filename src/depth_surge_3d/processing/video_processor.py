@@ -26,7 +26,7 @@ from ..utils.image_processing import (
     apply_fisheye_square_crop, create_vr_frame, hole_fill_image
 )
 from ..core.constants import INTERMEDIATE_DIRS
-from ..utils.console import step_complete, success as console_success, warning as console_warning
+from ..utils.console import step_complete, saved_to, title_bar, success as console_success, warning as console_warning
 
 
 class VideoProcessor:
@@ -78,7 +78,7 @@ class VideoProcessor:
                 output_path, batch_name, settings, video_properties, video_path
             )
 
-            print(f"\n=== Depth Surge 3D Video Processing ===")
+            print(f"\n{title_bar('=== Depth Surge 3D Video Processing ===')}")
             print(f"Input: {video_path}")
             print(f"Output: {output_path}")
             print(f"Using Video-Depth-Anything for temporal consistency\n")
@@ -107,7 +107,7 @@ class VideoProcessor:
             # Get timing and output unified completion message
             duration = progress_callback.get_step_duration() if progress_callback else 0
             print(step_complete(f"Extracted {len(frame_files)} frames in {duration:.2f}s"))
-            print(step_complete(f"Saved to: {directories.get('frames', 'N/A')}\n"))
+            print(saved_to(f"Saved to: {directories.get('frames', 'N/A')}\n"))
 
             # Initialize progress tracker
             if progress_callback:
@@ -138,7 +138,7 @@ class VideoProcessor:
             duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, 'get_step_duration') else 0
             print(step_complete(f"Generated {len(depth_maps)} depth maps in {duration:.2f}s"))
             if settings['keep_intermediates'] and 'depth_maps' in directories:
-                print(step_complete(f"Saved to: {directories['depth_maps']}\n"))
+                print(saved_to(f"Saved to: {directories['depth_maps']}\n"))
             else:
                 print()
 
@@ -177,7 +177,7 @@ class VideoProcessor:
             duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, 'get_step_duration') else 0
             print(step_complete(f"Created stereo pairs for {len(frames)} frames in {duration:.2f}s"))
             if settings['keep_intermediates'] and 'left_frames' in directories:
-                print(step_complete(f"Saved to: {directories['left_frames']} & {directories['right_frames']}\n"))
+                print(saved_to(f"Saved to: {directories['left_frames']} & {directories['right_frames']}\n"))
             else:
                 print()
 
@@ -197,7 +197,7 @@ class VideoProcessor:
                 duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, 'get_step_duration') else 0
                 print(step_complete(f"Applied fisheye distortion to {len(left_files)} frames in {duration:.2f}s"))
                 if settings['keep_intermediates'] and 'left_distorted' in directories:
-                    print(step_complete(f"Saved to: {directories['left_distorted']} & {directories['right_distorted']}\n"))
+                    print(saved_to(f"Saved to: {directories['left_distorted']} & {directories['right_distorted']}\n"))
                 else:
                     print()
             else:
@@ -217,14 +217,14 @@ class VideoProcessor:
             print(step_complete(f"Created {len(frames)} VR frames in {duration:.2f}s"))
             if settings['keep_intermediates']:
                 if 'left_cropped' in directories:
-                    print(step_complete(f"Cropped: {directories['left_cropped']} & {directories['right_cropped']}"))
+                    print(saved_to(f"Cropped: {directories['left_cropped']} & {directories['right_cropped']}"))
                 if 'left_final' in directories:
-                    print(step_complete(f"Resized: {directories['left_final']} & {directories['right_final']}"))
+                    print(saved_to(f"Resized: {directories['left_final']} & {directories['right_final']}"))
                 if 'vr_frames' in directories:
-                    print(step_complete(f"VR frames: {directories['vr_frames']}\n"))
+                    print(saved_to(f"VR frames: {directories['vr_frames']}\n"))
             else:
                 if 'vr_frames' in directories:
-                    print(step_complete(f"Saved to: {directories['vr_frames']}\n"))
+                    print(saved_to(f"Saved to: {directories['vr_frames']}\n"))
                 else:
                     print()
 
@@ -253,7 +253,7 @@ class VideoProcessor:
                 # Get timing and output unified completion message
                 duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, 'get_step_duration') else 0
                 print(step_complete(f"Created final video in {duration:.2f}s"))
-                print(step_complete(f"Saved to: {output_path / output_filename}\n"))
+                print(saved_to(f"Saved to: {output_path / output_filename}\n"))
 
             progress_tracker.finish("Video processing complete")
 
