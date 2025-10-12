@@ -209,14 +209,28 @@ class VideoDepthEstimator:
             # Convert BGR to RGB
             frames_rgb = frames[..., ::-1].copy()
 
-            # Call the video depth inference method
-            depths, _ = self.model.infer_video_depth(
-                frames_rgb,
-                target_fps,
-                input_size=input_size,
-                device=self.device,
-                fp32=fp32
-            )
+            # Suppress tqdm output from Video-Depth-Anything
+            import sys
+            import os
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            try:
+                sys.stdout = open(os.devnull, 'w')
+                sys.stderr = open(os.devnull, 'w')
+
+                # Call the video depth inference method
+                depths, _ = self.model.infer_video_depth(
+                    frames_rgb,
+                    target_fps,
+                    input_size=input_size,
+                    device=self.device,
+                    fp32=fp32
+                )
+            finally:
+                sys.stdout.close()
+                sys.stderr.close()
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
 
             # Normalize depth maps
             return self._normalize_depths(depths)
@@ -250,14 +264,28 @@ class VideoDepthEstimator:
             frames_rgb = chunk_frames[..., ::-1].copy()
 
             try:
-                # Process chunk
-                depths, _ = self.model.infer_video_depth(
-                    frames_rgb,
-                    target_fps,
-                    input_size=input_size,
-                    device=self.device,
-                    fp32=fp32
-                )
+                # Suppress tqdm output from Video-Depth-Anything
+                import sys
+                import os
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                try:
+                    sys.stdout = open(os.devnull, 'w')
+                    sys.stderr = open(os.devnull, 'w')
+
+                    # Process chunk
+                    depths, _ = self.model.infer_video_depth(
+                        frames_rgb,
+                        target_fps,
+                        input_size=input_size,
+                        device=self.device,
+                        fp32=fp32
+                    )
+                finally:
+                    sys.stdout.close()
+                    sys.stderr.close()
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
 
                 # Determine which frames to keep (handle overlap)
                 if chunk_start == 0:
@@ -282,14 +310,27 @@ class VideoDepthEstimator:
                     print(f"  OOM error, retrying with reduced resolution...")
                     torch.cuda.empty_cache()
 
-                    # Retry with smaller input size
-                    depths, _ = self.model.infer_video_depth(
-                        frames_rgb,
-                        target_fps,
-                        input_size=max(384, input_size // 2),  # Reduce resolution
-                        device=self.device,
-                        fp32=fp32
-                    )
+                    # Retry with smaller input size (also suppress output)
+                    import sys
+                    import os
+                    old_stdout = sys.stdout
+                    old_stderr = sys.stderr
+                    try:
+                        sys.stdout = open(os.devnull, 'w')
+                        sys.stderr = open(os.devnull, 'w')
+
+                        depths, _ = self.model.infer_video_depth(
+                            frames_rgb,
+                            target_fps,
+                            input_size=max(384, input_size // 2),  # Reduce resolution
+                            device=self.device,
+                            fp32=fp32
+                        )
+                    finally:
+                        sys.stdout.close()
+                        sys.stderr.close()
+                        sys.stdout = old_stdout
+                        sys.stderr = old_stderr
 
                     # Same keep logic
                     if chunk_start == 0:
