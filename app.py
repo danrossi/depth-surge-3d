@@ -207,6 +207,9 @@ class ProgressCallback:
             "Final Processing",      # Step 6: Create VR frames
             "Video Creation"         # Step 7: FFmpeg creates video
         ]
+        # Weighted progress based on actual timing measurements
+        # [1%, 17%, 1%, 31%, 38%, 6%, 7%] = 100%
+        self.step_weights = [0.01, 0.17, 0.01, 0.30, 0.38, 0.06, 0.07]
         self.current_step_index = 0
         self.step_progress = 0
         self.step_total = 0
@@ -251,10 +254,17 @@ class ProgressCallback:
 
         current_processing['stage'] = stage
 
-        # Calculate overall progress (assume equal time for all 7 steps)
+        # Calculate overall progress using weighted steps
         step_progress_ratio = (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
-        overall_progress = ((self.current_step_index + step_progress_ratio) / len(self.steps)) * 100
-        progress = round(overall_progress, 1)
+
+        # Sum weights of all completed steps
+        cumulative_weight = sum(self.step_weights[:self.current_step_index])
+
+        # Add weighted progress of current step
+        if self.current_step_index < len(self.step_weights):
+            cumulative_weight += step_progress_ratio * self.step_weights[self.current_step_index]
+
+        progress = round(cumulative_weight * 100, 1)
 
         current_processing['progress'] = round(progress, 1)
         current_processing['phase'] = self.current_phase
