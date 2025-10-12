@@ -101,8 +101,27 @@ class VideoProcessor:
             else:
                 progress_tracker = create_progress_tracker(len(frame_files), 'batch')
 
-            # Step 2: Load all frames into memory
-            print("Step 2/7: Loading frames into memory...")
+            # Step 2: Generate depth maps (memory-efficient chunked processing)
+            print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
+            print("  Using memory-efficient chunked processing...")
+            progress_tracker.update_progress(
+                "Generating depth maps",
+                step_name="Depth Map Generation",
+                step_progress=0,
+                step_total=len(frame_files)
+            )
+
+            depth_maps = self._generate_depth_maps_chunked(frame_files, settings, directories, progress_tracker)
+            if depth_maps is None:
+                print("Error: Failed to generate depth maps")
+                if settings_file:
+                    update_processing_status(settings_file, "failed", {"error": "Depth map generation failed"})
+                return False
+
+            print(f"  -> Generated {len(depth_maps)} depth maps\n")
+
+            # Step 3: Load frames for stereo processing
+            print("Step 3/7: Loading frames for stereo processing...")
             progress_tracker.update_progress(
                 "Loading frames",
                 step_name="Frame Extraction",
@@ -117,29 +136,7 @@ class VideoProcessor:
                     update_processing_status(settings_file, "failed", {"error": "Failed to load frames"})
                 return False
 
-            print(f"  -> Loaded {len(frames)} frames (shape: {frames[0].shape})\n")
-
-            # Step 3: Video depth estimation with temporal consistency
-            print("Step 3/7: Generating depth maps (temporal consistency enabled)...")
-            progress_tracker.update_progress(
-                "Generating depth maps",
-                step_name="Depth Map Generation",
-                step_progress=0,
-                step_total=len(frames)
-            )
-
-            depth_maps = self._generate_depth_maps_batch(frames, settings, progress_tracker)
-            if depth_maps is None:
-                print("Error: Failed to generate depth maps")
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "Depth map generation failed"})
-                return False
-
-            print(f"  -> Generated {len(depth_maps)} depth maps\n")
-
-            # Save depth maps if keeping intermediates
-            if settings['keep_intermediates'] and 'depth_maps' in directories:
-                self._save_depth_maps(depth_maps, frame_files, directories['depth_maps'])
+            print(f"  -> Loaded {len(frames)} frames\n")
 
             # Step 4-7: Process stereo pairs and create VR frames
             print("Steps 4-7: Creating stereo pairs and VR frames...")
@@ -263,6 +260,105 @@ class VideoProcessor:
             return None
 
         return np.array(frames_list)
+
+    def _generate_depth_maps_chunked(
+        self,
+        frame_files: List[Path],
+        settings: Dict[str, Any],
+        directories: Dict[str, Path],
+        progress_tracker
+    ) -> Optional[np.ndarray]:
+        """
+        Generate depth maps in memory-efficient chunks.
+
+        Processes frames in small batches to avoid CUDA OOM errors.
+        """
+        # Determine chunk size based on resolution
+        sample_frame = cv2.imread(str(frame_files[0]))
+        if sample_frame is None:
+            return None
+
+        frame_h, frame_w = sample_frame.shape[:2]
+
+        # Adaptive chunk size based on resolution
+        if frame_h * frame_w > 2000 * 2000:  # >4MP (e.g., 4K)
+            chunk_size = 16  # Small chunks for high-res
+        else:
+            chunk_size = 32  # Standard chunks
+
+        print(f"  Processing in chunks of {chunk_size} frames...")
+
+        all_depth_maps = []
+        num_frames = len(frame_files)
+
+        for chunk_start in range(0, num_frames, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, num_frames)
+            chunk_files = frame_files[chunk_start:chunk_end]
+
+            print(f"  Chunk {chunk_start//chunk_size + 1}: frames {chunk_start+1}-{chunk_end}/{num_frames}")
+
+            # Load chunk of frames
+            chunk_frames = []
+            for frame_file in chunk_files:
+                frame = cv2.imread(str(frame_file))
+                if frame is None:
+                    print(f"Warning: Could not load {frame_file}")
+                    continue
+
+                # Apply super sampling if needed
+                if settings['super_sample'] != 'none':
+                    target_width = max(frame.shape[1], settings['per_eye_width'] * 2)
+                    target_height = max(frame.shape[0], settings['per_eye_height'] * 2)
+                    frame = resize_image(frame, target_width, target_height)
+
+                chunk_frames.append(frame)
+
+            if not chunk_frames:
+                print(f"Error: No frames loaded in chunk")
+                return None
+
+            # Process chunk for depth
+            try:
+                target_fps = settings.get('target_fps', 30)
+                if target_fps is None or str(target_fps) == 'None' or target_fps == 'original':
+                    target_fps = 30
+
+                chunk_frames_array = np.array(chunk_frames)
+                chunk_depth_maps = self.depth_estimator.estimate_depth_batch(
+                    chunk_frames_array,
+                    target_fps=target_fps,
+                    input_size=518,
+                    fp32=False
+                )
+
+                all_depth_maps.extend(chunk_depth_maps)
+
+                # Save depth maps immediately to free memory
+                if settings['keep_intermediates'] and 'depth_maps' in directories:
+                    depth_dir = directories['depth_maps']
+                    for i, (depth_map, frame_file) in enumerate(zip(chunk_depth_maps, chunk_files)):
+                        depth_vis = (depth_map * 255).astype('uint8')
+                        frame_name = frame_file.stem
+                        cv2.imwrite(str(depth_dir / f"{frame_name}.png"), depth_vis)
+
+                # Clear references to free memory
+                del chunk_frames
+                del chunk_frames_array
+                del chunk_depth_maps
+
+                # Update progress
+                progress_tracker.update_progress(
+                    f"Depth maps: {chunk_end}/{num_frames}",
+                    step_name="Depth Map Generation",
+                    step_progress=chunk_end,
+                    step_total=num_frames
+                )
+
+            except Exception as e:
+                print(f"Error processing chunk {chunk_start}-{chunk_end}: {e}")
+                return None
+
+        return np.array(all_depth_maps)
 
     def _generate_depth_maps_batch(
         self,
