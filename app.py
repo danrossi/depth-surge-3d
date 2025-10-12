@@ -292,7 +292,7 @@ class ProgressCallback:
 
         # Console output - show both overall and step progress
         step_percent = (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
-        print(f"Overall: {progress:.1f}% | Step: {step_percent:.0f}% ({self.step_progress}/{self.step_total}) | {stage}")
+        print(f"Overall: {progress:05.1f}% | Step: {step_percent:03.0f}% ({self.step_progress:04d}/{self.step_total:04d}) | {stage}")
 
         try:
             # Emit progress (socketio.start_background_task handles context automatically)
