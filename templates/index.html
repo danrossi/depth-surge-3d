@@ -576,17 +576,15 @@
                         <h5><i class="fas fa-upload"></i> Upload Video</h5>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <input type="file" class="form-control" id="videoFile" accept="video/*">
-                        </div>
-                        <button type="button" class="btn btn-primary" id="uploadBtn">
+                        <label for="videoFile" class="btn btn-success w-100" id="uploadBtn" style="cursor: pointer;">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="17 8 12 3 7 8"/>
                                 <line x1="12" y1="3" x2="12" y2="15"/>
                             </svg>
-                            Upload Video
-                        </button>
+                            <span id="uploadBtnText">Upload Video</span>
+                        </label>
+                        <input type="file" class="form-control d-none" id="videoFile" accept="video/*">
                         
                         <!-- Video Preview -->
                         <div id="videoPreview" style="display: none;" class="mt-3">
@@ -839,13 +837,24 @@
                             <div class="mb-3">
                                 <label class="form-label">Depth Model Size <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Smaller models use less VRAM but may be slightly less accurate. Use Small if you have OOM errors."></i></label>
                                 <select class="form-select" id="modelSize">
-                                    <option value="vitl" selected>Large (Best Quality, ~12GB VRAM)</option>
-                                    <option value="vitb">Base (Good Quality, ~8GB VRAM)</option>
+                                    <option value="vitb" selected>Base (Balanced, ~8GB VRAM) - Recommended</option>
                                     <option value="vits">Small (Fast, ~4GB VRAM)</option>
+                                    <option value="vitl">Large (Best Quality, ~12GB VRAM)</option>
                                 </select>
                                 <small class="form-text text-muted">
-                                    <i class="fas fa-memory"></i> Reduce model size if you get out-of-memory errors<br>
-                                    <i class="fas fa-info-circle"></i> Small model is recommended for 8GB GPUs or 1080p+ videos
+                                    <i class="fas fa-memory"></i> Base model recommended for 16GB GPUs<br>
+                                    <i class="fas fa-info-circle"></i> Use Small for 8GB GPUs or high-res videos
+                                </small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Depth Model Type <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Metric models provide actual depth in meters (better for VR). Relative models only provide depth ordering."></i></label>
+                                <select class="form-select" id="depthModelType">
+                                    <option value="metric" selected>Metric Depth (Accurate meters, best for VR)</option>
+                                    <option value="relative">Relative Depth (Ordering only, faster)</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-ruler"></i> Metric depth recommended for better 3D quality<br>
+                                    <i class="fas fa-brain"></i> Trained on Virtual KITTI and IRS datasets
                                 </small>
                             </div>
                             <div class="form-check mb-2">
@@ -1216,23 +1225,22 @@
             });
         }
 
-        // Upload video
-        document.getElementById('uploadBtn').addEventListener('click', function() {
-            const fileInput = document.getElementById('videoFile');
-            const file = fileInput.files[0];
-            
+        // Auto-upload video when file is selected
+        document.getElementById('videoFile').addEventListener('change', function() {
+            const file = this.files[0];
+
             if (!file) {
-                alert('Please select a video file');
                 return;
             }
-            
+
             const formData = new FormData();
             formData.append('video', file);
-            
-            const btn = this;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-            
+
+            const btn = document.getElementById('uploadBtn');
+            const btnText = document.getElementById('uploadBtnText');
+            btn.style.pointerEvents = 'none';  // Disable during upload
+            btnText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+
             fetch('/upload', {
                 method: 'POST',
                 body: formData
@@ -1243,17 +1251,19 @@
                     uploadedFilename = data.filename;
                     displayVideoInfo(data.video_info, file);
                     document.getElementById('processBtn').disabled = false;
+                    btnText.innerHTML = '<i class="fas fa-check"></i> ' + file.name;
                 } else {
                     alert('Upload failed: ' + data.error);
+                    btnText.textContent = 'Upload Video';
                 }
             })
             .catch(error => {
                 console.error('Upload error:', error);
                 alert('Upload failed');
+                btnText.textContent = 'Upload Video';
             })
             .finally(() => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Upload Video';
+                btn.style.pointerEvents = '';  // Re-enable
             });
         });
 
@@ -1383,6 +1393,7 @@
                 keep_intermediates: document.getElementById('keepIntermediates').checked,
                 device: document.getElementById('device').value,
                 model_size: document.getElementById('modelSize').value,
+                use_metric_depth: document.getElementById('depthModelType').value === 'metric',
                 processing_mode: document.getElementById('processingMode').value,
                 super_sample: document.getElementById('superSample').value,
                 apply_distortion: document.getElementById('applyDistortion').checked,
@@ -1957,6 +1968,7 @@
                 superSample: document.getElementById('superSample').value,
                 device: document.getElementById('device').value,
                 modelSize: document.getElementById('modelSize').value,
+                depthModelType: document.getElementById('depthModelType').value,
                 processingMode: document.getElementById('processingMode').value,
                 
                 // Audio and intermediates
