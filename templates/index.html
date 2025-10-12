@@ -1670,20 +1670,10 @@
             updateStepProgress(data);
         }
 
-        // Map phase names to step numbers
-        const phaseToStep = {
-            'extraction': 1,
-            'depth_estimation': 2,
-            'stereo_generation': 4,
-            'distortion': 5,
-            'vr_assembly': 6,
-            'video_creation': 7
-        };
-
         // Update individual step progress bars
         function updateStepProgress(data) {
-            const phase = data.phase || 'extraction';
-            const stepNum = phaseToStep[phase] || 1;
+            // Use step_index from backend (0-based, so add 1 for display)
+            const stepNum = (data.step_index !== undefined) ? data.step_index + 1 : 1;
             const stepProgress = data.step_progress || 0;
             const stepTotal = data.step_total || 1;
             const stepPercent = stepTotal > 0 ? (stepProgress / stepTotal) * 100 : 0;
@@ -1713,17 +1703,6 @@
                     bar.classList.remove('bg-success');
                     bar.classList.add('bg-info');
                     text.textContent = '0%';
-                }
-            }
-
-            // Handle step 3 (load frames) which is part of depth_estimation phase
-            if (phase === 'depth_estimation' && data.stage && data.stage.toLowerCase().includes('loading')) {
-                const bar = document.getElementById('step3Bar');
-                const text = document.getElementById('step3Progress');
-                if (bar && text) {
-                    bar.style.width = stepPercent + '%';
-                    bar.classList.add('bg-info');
-                    text.textContent = stepPercent.toFixed(0) + '%';
                 }
             }
         }
