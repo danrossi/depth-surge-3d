@@ -916,8 +916,8 @@
                             </div>
                             <div class="mb-3" id="distortionK2Options">
                                 <label class="form-label">Field of View (degrees)</label>
-                                <input type="number" class="form-control" id="fisheyeFov" value="105" step="5" min="75" max="180">
-                                <small class="form-text text-muted">Fisheye field of view (75-180 degrees, default: 105)</small>
+                                <input type="number" class="form-control" id="fisheyeFov" value="180" step="5" min="75" max="180">
+                                <small class="form-text text-muted">Fisheye field of view (75-180 degrees, default: 180 for full dome)</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Center crop factor for non-fisheye. 1.0 = no crop, 0.5 = crop to 50% of center. Lower values crop more."></i></label>
@@ -925,9 +925,9 @@
                                 <small class="form-text text-muted">Center crop factor to reduce edge artifacts (0.5-1.0, default: 1.0 - no crop)</small>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye square crop factor. 1.0 = inscribed square, >1.0 = more content (may go outside circle), <1.0 = tighter crop. Typical: 0.7-1.5"></i></label>
-                                <input type="number" class="form-control" id="fisheyeCropFactor" value="1.0" step="0.05" min="0.7" max="1.5">
-                                <small class="form-text text-muted">Fisheye square crop factor relative to circle (0.7-1.5, default: 1.0 = inscribed square)</small>
+                                <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye zoom/crop. 1.0 = inscribed circle, <1.0 = zoom in to hide curved edges, >1.0 = show more (may reveal distortion). Typical: 0.5-1.2"></i></label>
+                                <input type="number" class="form-control" id="fisheyeCropFactor" value="0.7" step="0.05" min="0.5" max="2.0">
+                                <small class="form-text text-muted">Fisheye crop factor (0.5-2.0, default: 0.7 = zoom in 70% to hide curved edges)</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Hole Filling Quality <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Advanced uses depth-guided multi-stage filling for better quality but slower processing. Fast uses simple inpainting for speed."></i></label>
@@ -1398,12 +1398,14 @@
             
             // Update system info
             updateSystemInfo();
-            
-            // Set default end time to video duration
-            const minutes = Math.floor(info.duration / 60);
-            const seconds = Math.floor(info.duration % 60);
-            document.getElementById('endTime').value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+
+            // Set default end time to video duration only if not already set
+            if (!document.getElementById('endTime').value) {
+                const minutes = Math.floor(info.duration / 60);
+                const seconds = Math.floor(info.duration % 60);
+                document.getElementById('endTime').value = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
             // Calculate range info
             updateRangeInfo();
         }
@@ -2087,7 +2089,9 @@
 
         // Settings persistence functions
         function saveSettings() {
+            const SETTINGS_VERSION = 2; // Must match version in loadSettings()
             const settings = {
+                version: SETTINGS_VERSION,
                 // Time range
                 startTime: document.getElementById('startTime').value,
                 endTime: document.getElementById('endTime').value,
@@ -2127,14 +2131,23 @@
         }
         
         function loadSettings() {
+            const SETTINGS_VERSION = 2; // Increment to force reset of old settings
             const savedSettings = localStorage.getItem('stereoProjectorSettings');
             if (!savedSettings) return;
-            
+
             try {
                 const settings = JSON.parse(savedSettings);
+
+                // Check version and reset if outdated
+                if (!settings.version || settings.version < SETTINGS_VERSION) {
+                    console.log('Settings version outdated, resetting to new defaults');
+                    localStorage.removeItem('stereoProjectorSettings');
+                    return; // Will use defaults from HTML
+                }
                 
                 // Apply settings to form elements
                 Object.keys(settings).forEach(key => {
+                    if (key === 'version') return; // Skip version metadata
                     const element = document.getElementById(key);
                     if (element) {
                         if (element.type === 'checkbox') {
@@ -2174,9 +2187,9 @@
                 keepIntermediates: true,
                 applyDistortion: true,
                 fisheyeProjection: 'stereographic',
-                fisheyeFov: '105',
+                fisheyeFov: '180',
                 cropFactor: '1.0',
-                fisheyeCropFactor: '1.0',
+                fisheyeCropFactor: '0.7',
                 holeFillQuality: 'fast'
             };
             

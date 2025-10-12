@@ -219,12 +219,12 @@ def calculate_fisheye_coordinates(
     # Convert back to cartesian coordinates
     x_fisheye = r_fisheye * np.cos(angle) + center_x
     y_fisheye = r_fisheye * np.sin(angle) + center_y
-    
-    # Mask out coordinates outside the fisheye circle
-    mask = radius <= max_radius
-    x_fisheye = np.where(mask, x_fisheye, 0)
-    y_fisheye = np.where(mask, y_fisheye, 0)
-    
+
+    # Clamp coordinates to image bounds instead of masking to circle
+    # This allows the fisheye to fill the entire rectangular frame
+    x_fisheye = np.clip(x_fisheye, 0, width - 1)
+    y_fisheye = np.clip(y_fisheye, 0, height - 1)
+
     return x_fisheye.astype(np.float32), y_fisheye.astype(np.float32)
 
 
@@ -249,14 +249,13 @@ def apply_fisheye_distortion(
     # Get coordinate mappings
     x_map, y_map = calculate_fisheye_coordinates(width, height, fov_degrees, projection_type)
     
-    # Apply remapping
+    # Apply remapping with reflection to avoid black borders
     distorted = cv2.remap(
-        image, x_map, y_map, 
-        cv2.INTER_LINEAR, 
-        borderMode=cv2.BORDER_CONSTANT, 
-        borderValue=(0, 0, 0)
+        image, x_map, y_map,
+        cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REFLECT_101
     )
-    
+
     return distorted
 
 

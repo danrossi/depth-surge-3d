@@ -30,9 +30,9 @@ DEFAULT_SETTINGS = {
     "vr_format": "side_by_side",
     "vr_resolution": "auto",
     "fisheye_projection": "stereographic",
-    "fisheye_fov": 105,  # degrees
-    "crop_factor": 1.5,  # default: 1.5 (matches user preference)
-    "fisheye_crop_factor": 0.7,  # default: 0.7 (matches user preference)
+    "fisheye_fov": 180,  # degrees - full 180° dome view
+    "crop_factor": 1.0,  # default: 1.0 (no crop)
+    "fisheye_crop_factor": 0.7,  # default: 0.7 (zoom into center ~70%, crops ~20% each edge to hide distortion)
     "hole_fill_quality": "fast",
     "super_sample": "auto",
     "target_fps": 60,
@@ -179,7 +179,8 @@ ERROR_MESSAGES = {
 VALIDATION_RANGES = {
     "baseline": (0.01, 0.5),  # meters
     "focal_length": (100, 5000),  # pixels
-    "fisheye_fov": (MIN_FOV, MAX_FOV),  # degrees
-    "crop_factor": (0.1, 2.0),  # ratio
+    "fisheye_fov": (MIN_FOV, MAX_FOV),  # degrees (75-180)
+    "crop_factor": (0.5, 1.0),  # ratio for non-fisheye crop
+    "fisheye_crop_factor": (0.5, 2.0),  # ratio for fisheye crop (1.0=inscribed circle, <1.0=zoom in, >1.0=show curved edges)
     "target_fps": (1, 120),  # fps
 } 

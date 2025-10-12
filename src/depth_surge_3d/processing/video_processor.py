@@ -214,10 +214,18 @@ class VideoProcessor:
             # Get timing and output unified completion message
             duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, 'get_step_duration') else 0
             print(f"  -> Created {len(frames)} VR frames in {duration:.2f}s")
-            if 'vr_frames' in directories:
-                print(f"  -> Saved to: {directories['vr_frames']}\n")
+            if settings['keep_intermediates']:
+                if 'left_cropped' in directories:
+                    print(f"  -> Cropped: {directories['left_cropped']} & {directories['right_cropped']}")
+                if 'left_final' in directories:
+                    print(f"  -> Resized: {directories['left_final']} & {directories['right_final']}")
+                if 'vr_frames' in directories:
+                    print(f"  -> VR frames: {directories['vr_frames']}\n")
             else:
-                print()
+                if 'vr_frames' in directories:
+                    print(f"  -> Saved to: {directories['vr_frames']}\n")
+                else:
+                    print()
 
             # Step 7: Create final video
             print("Step 7/7: Creating final video with audio...")
@@ -657,8 +665,10 @@ class VideoProcessor:
 
                 # Apply cropping and resizing
                 if settings['apply_distortion']:
-                    fisheye_crop_factor = float(settings.get('fisheye_crop_factor', 1.0))
-                    fisheye_crop_factor = max(0.7, min(1.5, fisheye_crop_factor))
+                    # Fisheye crop factor: zoom into center to hide curved distortion edges
+                    # 0.7 = keep center ~70%, crop ~20% each edge (good for 180° FOV)
+                    fisheye_crop_factor = float(settings.get('fisheye_crop_factor', 0.7))
+                    fisheye_crop_factor = max(0.5, min(2.0, fisheye_crop_factor))
 
                     left_cropped = apply_fisheye_square_crop(
                         left_img, settings['per_eye_width'], settings['per_eye_height'], fisheye_crop_factor
@@ -670,6 +680,7 @@ class VideoProcessor:
                     left_final = resize_image(left_cropped, settings['per_eye_width'], settings['per_eye_height'])
                     right_final = resize_image(right_cropped, settings['per_eye_width'], settings['per_eye_height'])
                 else:
+                    # Regular crop factor: 1.0 = no crop, <1.0 = crop to center region
                     crop_factor = float(settings.get('crop_factor', 1.0))
                     crop_factor = max(0.5, min(1.0, crop_factor))
 
@@ -679,12 +690,23 @@ class VideoProcessor:
                     left_final = resize_image(left_cropped, settings['per_eye_width'], settings['per_eye_height'])
                     right_final = resize_image(right_cropped, settings['per_eye_width'], settings['per_eye_height'])
 
+                # Save intermediate cropped and final frames if keeping intermediates
+                frame_name = left_file.stem
+                if settings['keep_intermediates']:
+                    if 'left_cropped' in directories:
+                        cv2.imwrite(str(directories['left_cropped'] / f"{frame_name}.png"), left_cropped)
+                    if 'right_cropped' in directories:
+                        cv2.imwrite(str(directories['right_cropped'] / f"{frame_name}.png"), right_cropped)
+                    if 'left_final' in directories:
+                        cv2.imwrite(str(directories['left_final'] / f"{frame_name}.png"), left_final)
+                    if 'right_final' in directories:
+                        cv2.imwrite(str(directories['right_final'] / f"{frame_name}.png"), right_final)
+
                 # Create final VR frame
                 vr_frame = create_vr_frame(left_final, right_final, settings['vr_format'])
 
                 # Save VR frame
                 if 'vr_frames' in directories:
-                    frame_name = left_file.stem
                     cv2.imwrite(str(directories['vr_frames'] / f"{frame_name}.png"), vr_frame)
 
                 # Update progress
