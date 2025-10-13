@@ -36,7 +36,13 @@ from ..utils.image_processing import (
     hole_fill_image,
 )
 from ..core.constants import INTERMEDIATE_DIRS
-from ..utils.console import step_complete, saved_to, title_bar, success as console_success, warning as console_warning
+from ..utils.console import (
+    step_complete,
+    saved_to,
+    title_bar,
+    success as console_success,
+    warning as console_warning,
+)
 
 
 class VideoProcessor:
@@ -50,6 +56,359 @@ class VideoProcessor:
     def __init__(self, depth_estimator: VideoDepthEstimator, verbose: bool = False):
         self.depth_estimator = depth_estimator
         self.verbose = verbose
+        self._settings_file = None  # Track settings file for error handling
+
+    def _update_step_progress(
+        self, progress_tracker, message: str, step_name: str, progress: int, total: int
+    ):
+        """Update progress for a processing step."""
+        if progress_tracker:
+            progress_tracker.update_progress(
+                message,
+                phase="processing",
+                frame_num=progress,
+                step_name=step_name,
+                step_progress=progress,
+                step_total=total,
+            )
+
+    def _print_step_complete(
+        self, num_items: int, duration: float, item_type: str = "frames"
+    ):
+        """Print step completion message."""
+        print(
+            step_complete(f"Processed {num_items:04d} {item_type} in {duration:.2f}s")
+        )
+
+    def _print_saved_to(self, directory: Path, message_prefix: str = "Saved to"):
+        """Print save location message."""
+        if directory:
+            print(saved_to(f"{message_prefix}: {directory}\n"))
+        else:
+            print()
+
+    def _handle_step_error(self, error_msg: str) -> bool:
+        """Handle step failure and update settings file."""
+        print(f"Error: {error_msg}")
+        if self._settings_file:
+            update_processing_status(
+                self._settings_file, "failed", {"error": error_msg}
+            )
+        return False
+
+    def _setup_processing(
+        self,
+        video_path: str,
+        output_dir: str,
+        settings: Dict[str, Any],
+        video_properties: Dict[str, Any],
+    ) -> tuple[Path, Dict[str, Path], Optional[Path]]:
+        """Setup processing directories and settings file."""
+        output_path = Path(output_dir)
+        directories = create_output_directories(
+            output_path, settings["keep_intermediates"]
+        )
+        batch_name = f"{Path(video_path).stem}_{int(time.time())}"
+        settings_file = save_processing_settings(
+            output_path, batch_name, settings, video_properties, video_path
+        )
+
+        print(f"\n{title_bar('=== Depth Surge 3D Video Processing ===')}")
+        print(f"Input: {video_path}")
+        print(f"Output: {output_path}")
+        print(f"Using Video-Depth-Anything for temporal consistency\n")
+
+        return output_path, directories, settings_file
+
+    def _finalize_processing(
+        self,
+        success: bool,
+        output_path: Path,
+        video_path: str,
+        settings: Dict[str, Any],
+        num_frames: int,
+    ):
+        """Finalize processing and update settings file."""
+        if success:
+            print(console_success("Processing complete!"))
+            if self._settings_file:
+                output_filename = generate_output_filename(
+                    Path(video_path).name,
+                    settings["vr_format"],
+                    settings["vr_resolution"],
+                )
+                update_processing_status(
+                    self._settings_file,
+                    "completed",
+                    {
+                        "final_output": str(output_path / output_filename),
+                        "frames_processed": num_frames,
+                    },
+                )
+        elif self._settings_file:
+            update_processing_status(
+                self._settings_file, "failed", {"error": "Video creation failed"}
+            )
+
+    def _step_extract_frames(
+        self,
+        video_path: str,
+        directories: Dict[str, Path],
+        video_properties: Dict[str, Any],
+        settings: Dict[str, Any],
+        progress_callback,
+    ) -> Optional[List[Path]]:
+        """Execute Step 1: Extract frames from video."""
+        print("Step 1/7: Extracting frames from video...")
+        if progress_callback:
+            progress_callback.update_progress(
+                "Extracting frames from video",
+                phase="extraction",
+                frame_num=0,
+                step_name="Frame Extraction",
+                step_progress=0,
+                step_total=1,
+            )
+
+        frame_files = self._extract_frames(
+            video_path, directories, video_properties, settings
+        )
+        if not frame_files:
+            self._handle_step_error("No frames extracted from video")
+            return None
+
+        duration = progress_callback.get_step_duration() if progress_callback else 0
+        print(
+            step_complete(f"Extracted {len(frame_files):04d} frames in {duration:.2f}s")
+        )
+        print(saved_to(f"Saved to: {directories.get('frames', 'N/A')}\n"))
+        return frame_files
+
+    def _step_generate_depth_maps(
+        self,
+        frame_files: List[Path],
+        settings: Dict[str, Any],
+        directories: Dict[str, Path],
+        progress_tracker,
+    ) -> Optional[np.ndarray]:
+        """Execute Step 2: Generate depth maps."""
+        print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
+        print("  Using memory-efficient chunked processing...")
+        progress_tracker.update_progress(
+            "Generating depth maps",
+            phase="depth_estimation",
+            frame_num=0,
+            step_name="Depth Map Generation",
+            step_progress=0,
+            step_total=len(frame_files),
+        )
+
+        depth_maps = self._generate_depth_maps_chunked(
+            frame_files, settings, directories, progress_tracker
+        )
+        if depth_maps is None:
+            self._handle_step_error("Depth map generation failed")
+            return None
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(
+            step_complete(
+                f"Generated {len(depth_maps):04d} depth maps in {duration:.2f}s"
+            )
+        )
+        if settings["keep_intermediates"] and "depth_maps" in directories:
+            print(saved_to(f"Saved to: {directories['depth_maps']}\n"))
+        else:
+            print()
+        return depth_maps
+
+    def _step_load_frames(
+        self, frame_files: List[Path], settings: Dict[str, Any], progress_tracker
+    ) -> Optional[np.ndarray]:
+        """Execute Step 3: Load frames for stereo processing."""
+        print("Step 3/7: Loading frames for stereo processing...")
+        progress_tracker.update_progress(
+            "Loading frames",
+            phase="depth_estimation",
+            frame_num=0,
+            step_name="Frame Loading",
+            step_progress=0,
+            step_total=len(frame_files),
+        )
+
+        frames = self._load_frames(frame_files, settings, progress_tracker)
+        if frames is None or len(frames) == 0:
+            self._handle_step_error("Failed to load frames")
+            return None
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(step_complete(f"Loaded {len(frames):04d} frames in {duration:.2f}s"))
+        print(
+            saved_to(f"Loaded from: {directories.get('frames', 'N/A')}\n")
+            if "frames" in locals()
+            else ""
+        )
+        print()
+        return frames
+
+    def _step_create_stereo_pairs(
+        self,
+        frames: np.ndarray,
+        depth_maps: np.ndarray,
+        frame_files: List[Path],
+        directories: Dict[str, Path],
+        settings: Dict[str, Any],
+        progress_tracker,
+    ) -> bool:
+        """Execute Step 4: Create stereo pairs."""
+        print("Step 4/7: Creating stereo pairs...")
+        success = self._create_stereo_pairs(
+            frames, depth_maps, frame_files, directories, settings, progress_tracker
+        )
+        if not success:
+            self._handle_step_error("Stereo pair creation failed")
+            return False
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(
+            step_complete(
+                f"Created stereo pairs for {len(frames):04d} frames in {duration:.2f}s"
+            )
+        )
+        if settings["keep_intermediates"] and "left_frames" in directories:
+            print(
+                saved_to(
+                    f"Saved to: {directories['left_frames']} & {directories['right_frames']}\n"
+                )
+            )
+        else:
+            print()
+        return True
+
+    def _step_apply_distortion(
+        self, directories: Dict[str, Path], settings: Dict[str, Any], progress_tracker
+    ) -> bool:
+        """Execute Step 5: Apply fisheye distortion (if enabled)."""
+        if not settings["apply_distortion"]:
+            print("Step 5/7: Skipping fisheye distortion (disabled)\n")
+            return True
+
+        print("Step 5/7: Applying fisheye distortion...")
+        left_files = (
+            sorted(directories["left_frames"].glob("*.png"))
+            if "left_frames" in directories
+            else []
+        )
+        right_files = (
+            sorted(directories["right_frames"].glob("*.png"))
+            if "right_frames" in directories
+            else []
+        )
+
+        success = self._apply_distortion(
+            left_files, right_files, directories, settings, progress_tracker
+        )
+        if not success:
+            self._handle_step_error("Distortion failed")
+            return False
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(
+            step_complete(
+                f"Applied fisheye distortion to {len(left_files):04d} frames in {duration:.2f}s"
+            )
+        )
+        if settings["keep_intermediates"] and "left_distorted" in directories:
+            print(
+                saved_to(
+                    f"Saved to: {directories['left_distorted']} & {directories['right_distorted']}\n"
+                )
+            )
+        else:
+            print()
+        return True
+
+    def _step_create_vr_frames(
+        self,
+        directories: Dict[str, Path],
+        settings: Dict[str, Any],
+        progress_tracker,
+        num_frames: int,
+    ) -> bool:
+        """Execute Step 6: Create final VR frames."""
+        print("Step 6/7: Creating final VR frames...")
+        success = self._create_vr_frames(
+            directories, settings, progress_tracker, num_frames
+        )
+        if not success:
+            self._handle_step_error("VR frame creation failed")
+            return False
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(step_complete(f"Created {num_frames:04d} VR frames in {duration:.2f}s"))
+        if "vr_frames" in directories:
+            print(saved_to(f"Saved to: {directories['vr_frames']}\n"))
+        else:
+            print()
+        return True
+
+    def _step_create_final_video(
+        self,
+        directories: Dict[str, Path],
+        output_path: Path,
+        video_path: str,
+        settings: Dict[str, Any],
+        progress_tracker,
+        progress_callback,
+    ) -> bool:
+        """Execute Step 7: Create final video with audio."""
+        print("Step 7/7: Creating final video with audio...")
+        if progress_callback:
+            progress_callback.update_progress(
+                "Creating final video",
+                phase="video_creation",
+                frame_num=0,
+                step_name="Video Creation",
+                step_progress=0,
+                step_total=1,
+            )
+
+        success = self._create_output_video(
+            directories["vr_frames"], output_path, video_path, settings
+        )
+        if success:
+            output_filename = generate_output_filename(
+                Path(video_path).name, settings["vr_format"], settings["vr_resolution"]
+            )
+            duration = (
+                progress_tracker.get_step_duration()
+                if hasattr(progress_tracker, "get_step_duration")
+                else 0
+            )
+            print(step_complete(f"Created final video in {duration:.2f}s"))
+            print(saved_to(f"Saved to: {output_path / output_filename}\n"))
+
+        return success
 
     def process(
         self,
@@ -72,216 +431,85 @@ class VideoProcessor:
         Returns:
             True if processing completed successfully
         """
-        settings_file = None
-
         try:
-            output_path = Path(output_dir)
-
-            # Create output directories
-            directories = create_output_directories(output_path, settings["keep_intermediates"])
-
-            # Generate batch name
-            batch_name = f"{Path(video_path).stem}_{int(time.time())}"
-
-            # Save processing settings
-            settings_file = save_processing_settings(output_path, batch_name, settings, video_properties, video_path)
-
-            print(f"\n{title_bar('=== Depth Surge 3D Video Processing ===')}")
-            print(f"Input: {video_path}")
-            print(f"Output: {output_path}")
-            print(f"Using Video-Depth-Anything for temporal consistency\n")
+            # Setup processing environment
+            output_path, directories, self._settings_file = self._setup_processing(
+                video_path, output_dir, settings, video_properties
+            )
 
             # Step 1: Extract frames
-            print("Step 1/7: Extracting frames from video...")
-            if progress_callback:
-                progress_callback.update_progress(
-                    "Extracting frames from video",
-                    phase="extraction",
-                    frame_num=0,
-                    step_name="Frame Extraction",
-                    step_progress=0,
-                    step_total=1,
-                )
-
-            frame_files = self._extract_frames(video_path, directories, video_properties, settings)
+            frame_files = self._step_extract_frames(
+                video_path, directories, video_properties, settings, progress_callback
+            )
             if not frame_files:
-                print("Error: No frames extracted from video")
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "No frames extracted from video"})
                 return False
-
-            # Get timing and output unified completion message
-            duration = progress_callback.get_step_duration() if progress_callback else 0
-            print(step_complete(f"Extracted {len(frame_files):04d} frames in {duration:.2f}s"))
-            print(saved_to(f"Saved to: {directories.get('frames', 'N/A')}\n"))
 
             # Initialize progress tracker
-            if progress_callback:
-                progress_tracker = progress_callback
-            else:
-                progress_tracker = create_progress_tracker(len(frame_files), "batch")
-
-            # Step 2: Generate depth maps (memory-efficient chunked processing)
-            print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
-            print("  Using memory-efficient chunked processing...")
-            progress_tracker.update_progress(
-                "Generating depth maps",
-                phase="depth_estimation",
-                frame_num=0,
-                step_name="Depth Map Generation",
-                step_progress=0,
-                step_total=len(frame_files),
+            progress_tracker = (
+                progress_callback
+                if progress_callback
+                else create_progress_tracker(len(frame_files), "batch")
             )
 
-            depth_maps = self._generate_depth_maps_chunked(frame_files, settings, directories, progress_tracker)
+            # Step 2: Generate depth maps
+            depth_maps = self._step_generate_depth_maps(
+                frame_files, settings, directories, progress_tracker
+            )
             if depth_maps is None:
-                print("Error: Failed to generate depth maps")
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "Depth map generation failed"})
                 return False
-
-            # Get timing and output unified completion message
-            duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-            print(step_complete(f"Generated {len(depth_maps):04d} depth maps in {duration:.2f}s"))
-            if settings["keep_intermediates"] and "depth_maps" in directories:
-                print(saved_to(f"Saved to: {directories['depth_maps']}\n"))
-            else:
-                print()
 
             # Step 3: Load frames for stereo processing
-            print("Step 3/7: Loading frames for stereo processing...")
-            progress_tracker.update_progress(
-                "Loading frames",
-                phase="depth_estimation",
-                frame_num=0,
-                step_name="Frame Loading",
-                step_progress=0,
-                step_total=len(frame_files),
-            )
-
-            frames = self._load_frames(frame_files, settings, progress_tracker)
-            if frames is None or len(frames) == 0:
-                print("Error: Failed to load frames")
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "Failed to load frames"})
+            frames = self._step_load_frames(frame_files, settings, progress_tracker)
+            if frames is None:
                 return False
-
-            # Get timing and output unified completion message
-            duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-            print(step_complete(f"Loaded {len(frames):04d} frames in {duration:.2f}s"))
-            if "frames" in directories:
-                print(saved_to(f"Loaded from: {directories['frames']}\n"))
-            else:
-                print()
 
             # Step 4: Create stereo pairs
-            print("Step 4/7: Creating stereo pairs...")
-            success = self._create_stereo_pairs(
+            if not self._step_create_stereo_pairs(
                 frames, depth_maps, frame_files, directories, settings, progress_tracker
-            )
-            if not success:
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "Stereo pair creation failed"})
+            ):
                 return False
-            # Get timing and output unified completion message
-            duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-            print(step_complete(f"Created stereo pairs for {len(frames):04d} frames in {duration:.2f}s"))
-            if settings["keep_intermediates"] and "left_frames" in directories:
-                print(saved_to(f"Saved to: {directories['left_frames']} & {directories['right_frames']}\n"))
-            else:
-                print()
 
             # Step 5: Apply fisheye distortion (if enabled)
-            if settings["apply_distortion"]:
-                print("Step 5/7: Applying fisheye distortion...")
-                left_files = sorted(directories["left_frames"].glob("*.png")) if "left_frames" in directories else []
-                right_files = sorted(directories["right_frames"].glob("*.png")) if "right_frames" in directories else []
-                success = self._apply_distortion(left_files, right_files, directories, settings, progress_tracker)
-                if not success:
-                    if settings_file:
-                        update_processing_status(settings_file, "failed", {"error": "Distortion failed"})
-                    return False
-                # Get timing and output unified completion message
-                duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-                print(step_complete(f"Applied fisheye distortion to {len(left_files):04d} frames in {duration:.2f}s"))
-                if settings["keep_intermediates"] and "left_distorted" in directories:
-                    print(saved_to(f"Saved to: {directories['left_distorted']} & {directories['right_distorted']}\n"))
-                else:
-                    print()
-            else:
-                print("Step 5/7: Skipping fisheye distortion (disabled)\n")
+            if not self._step_apply_distortion(directories, settings, progress_tracker):
+                return False
 
             # Step 6: Create final VR frames
-            print("Step 6/7: Creating final VR frames...")
-            success = self._create_vr_frames(directories, settings, progress_tracker, len(frames))
-            if not success:
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "VR frame creation failed"})
+            if not self._step_create_vr_frames(
+                directories, settings, progress_tracker, len(frames)
+            ):
                 return False
-            # Get timing and output unified completion message
-            duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-            print(step_complete(f"Created {len(frames):04d} VR frames in {duration:.2f}s"))
-            # Only show final VR frames directory (intermediate directories are visible in file system)
-            if "vr_frames" in directories:
-                print(saved_to(f"Saved to: {directories['vr_frames']}\n"))
-            else:
-                print()
 
             # Step 7: Create final video
-            print("Step 7/7: Creating final video with audio...")
-            if progress_callback:
-                progress_callback.update_progress(
-                    "Creating final video",
-                    phase="video_creation",
-                    frame_num=0,
-                    step_name="Video Creation",
-                    step_progress=0,
-                    step_total=1,
-                )
+            success = self._step_create_final_video(
+                directories,
+                output_path,
+                video_path,
+                settings,
+                progress_tracker,
+                progress_callback,
+            )
 
-            success = self._create_output_video(directories["vr_frames"], output_path, video_path, settings)
-
-            if success:
-                output_filename = generate_output_filename(
-                    Path(video_path).name, settings["vr_format"], settings["vr_resolution"]
-                )
-                # Get timing and output unified completion message
-                duration = progress_tracker.get_step_duration() if hasattr(progress_tracker, "get_step_duration") else 0
-                print(step_complete(f"Created final video in {duration:.2f}s"))
-                print(saved_to(f"Saved to: {output_path / output_filename}\n"))
-
+            # Finalize and cleanup
             progress_tracker.finish("Video processing complete")
-
-            if success:
-                print(console_success("Processing complete!"))
-                if settings_file:
-                    update_processing_status(
-                        settings_file,
-                        "completed",
-                        {
-                            "final_output": str(
-                                output_path
-                                / generate_output_filename(
-                                    Path(video_path).name, settings["vr_format"], settings["vr_resolution"]
-                                )
-                            ),
-                            "frames_processed": len(frames),
-                        },
-                    )
-            else:
-                if settings_file:
-                    update_processing_status(settings_file, "failed", {"error": "Video creation failed"})
-
+            self._finalize_processing(
+                success, output_path, video_path, settings, len(frames)
+            )
             return success
 
         except Exception as e:
             print(f"Error in video processing: {e}")
-            if settings_file:
-                update_processing_status(settings_file, "failed", {"error": str(e)})
+            if self._settings_file:
+                update_processing_status(
+                    self._settings_file, "failed", {"error": str(e)}
+                )
             return False
 
     def _extract_frames(
-        self, video_path: str, directories: Dict[str, Path], video_properties: Dict[str, Any], settings: Dict[str, Any]
+        self,
+        video_path: str,
+        directories: Dict[str, Path],
+        video_properties: Dict[str, Any],
+        settings: Dict[str, Any],
     ) -> List[Path]:
         """Extract frames from video."""
         frames_dir = directories.get("frames")
@@ -320,7 +548,9 @@ class VideoProcessor:
 
         return get_frame_files(frames_dir)
 
-    def _load_frames(self, frame_files: List[Path], settings: Dict[str, Any], progress_tracker) -> Optional[np.ndarray]:
+    def _load_frames(
+        self, frame_files: List[Path], settings: Dict[str, Any], progress_tracker
+    ) -> Optional[np.ndarray]:
         """Load all frames into memory as numpy array."""
         frames_list = []
 
@@ -360,7 +590,11 @@ class VideoProcessor:
         return np.array(frames_list)
 
     def _generate_depth_maps_chunked(
-        self, frame_files: List[Path], settings: Dict[str, Any], directories: Dict[str, Path], progress_tracker
+        self,
+        frame_files: List[Path],
+        settings: Dict[str, Any],
+        directories: Dict[str, Path],
+        progress_tracker,
     ) -> Optional[np.ndarray]:
         """
         Generate depth maps in memory-efficient chunks.
@@ -392,7 +626,9 @@ class VideoProcessor:
             chunk_size = 32  # Standard chunks for SD
             input_size = 518
 
-        print(f"  Processing in chunks of {chunk_size} frames (input_size={input_size})...")
+        print(
+            f"  Processing in chunks of {chunk_size} frames (input_size={input_size})..."
+        )
 
         # Clear GPU cache before processing to maximize available VRAM
         if torch.cuda.is_available():
@@ -433,12 +669,19 @@ class VideoProcessor:
             # Process chunk for depth
             try:
                 target_fps = settings.get("target_fps", 30)
-                if target_fps is None or str(target_fps) == "None" or target_fps == "original":
+                if (
+                    target_fps is None
+                    or str(target_fps) == "None"
+                    or target_fps == "original"
+                ):
                     target_fps = 30
 
                 chunk_frames_array = np.array(chunk_frames)
                 chunk_depth_maps = self.depth_estimator.estimate_depth_batch(
-                    chunk_frames_array, target_fps=target_fps, input_size=input_size, fp32=False
+                    chunk_frames_array,
+                    target_fps=target_fps,
+                    input_size=input_size,
+                    fp32=False,
                 )
 
                 all_depth_maps.extend(chunk_depth_maps)
@@ -446,7 +689,9 @@ class VideoProcessor:
                 # Save depth maps immediately to free memory
                 if settings["keep_intermediates"] and "depth_maps" in directories:
                     depth_dir = directories["depth_maps"]
-                    for i, (depth_map, frame_file) in enumerate(zip(chunk_depth_maps, chunk_files)):
+                    for i, (depth_map, frame_file) in enumerate(
+                        zip(chunk_depth_maps, chunk_files)
+                    ):
                         depth_vis = (depth_map * 255).astype("uint8")
                         frame_name = frame_file.stem
                         cv2.imwrite(str(depth_dir / f"{frame_name}.png"), depth_vis)
@@ -483,7 +728,11 @@ class VideoProcessor:
         try:
             # Use Video-Depth-Anything for temporal consistency
             target_fps = settings.get("target_fps", 30)
-            if target_fps is None or str(target_fps) == "None" or target_fps == "original":
+            if (
+                target_fps is None
+                or str(target_fps) == "None"
+                or target_fps == "original"
+            ):
                 target_fps = 30
 
             depth_maps = self.depth_estimator.estimate_depth_batch(
@@ -496,7 +745,9 @@ class VideoProcessor:
             print(f"Error generating depth maps: {e}")
             return None
 
-    def _save_depth_maps(self, depth_maps: np.ndarray, frame_files: List[Path], depth_dir: Path):
+    def _save_depth_maps(
+        self, depth_maps: np.ndarray, frame_files: List[Path], depth_dir: Path
+    ):
         """Save depth maps to disk."""
         for i, (depth_map, frame_file) in enumerate(zip(depth_maps, frame_files)):
             depth_vis = (depth_map * 255).astype("uint8")
@@ -514,26 +765,40 @@ class VideoProcessor:
     ) -> bool:
         """Create stereo pairs from frames and depth maps."""
         try:
-            for i, (frame, depth_map, frame_file) in enumerate(zip(frames, depth_maps, frame_files)):
+            for i, (frame, depth_map, frame_file) in enumerate(
+                zip(frames, depth_maps, frame_files)
+            ):
                 frame_name = frame_file.stem
 
                 # Create stereo pair
-                disparity_map = depth_to_disparity(depth_map, settings["baseline"], settings["focal_length"])
+                disparity_map = depth_to_disparity(
+                    depth_map, settings["baseline"], settings["focal_length"]
+                )
 
                 left_img = create_shifted_image(frame, disparity_map, "left")
                 right_img = create_shifted_image(frame, disparity_map, "right")
 
                 # Apply hole filling
                 if settings["hole_fill_quality"] in ["fast", "advanced"]:
-                    left_img = hole_fill_image(left_img, method=settings["hole_fill_quality"])
-                    right_img = hole_fill_image(right_img, method=settings["hole_fill_quality"])
+                    left_img = hole_fill_image(
+                        left_img, method=settings["hole_fill_quality"]
+                    )
+                    right_img = hole_fill_image(
+                        right_img, method=settings["hole_fill_quality"]
+                    )
 
                 # Save stereo pair if keeping intermediates
                 if settings["keep_intermediates"]:
                     if "left_frames" in directories:
-                        cv2.imwrite(str(directories["left_frames"] / f"{frame_name}.png"), left_img)
+                        cv2.imwrite(
+                            str(directories["left_frames"] / f"{frame_name}.png"),
+                            left_img,
+                        )
                     if "right_frames" in directories:
-                        cv2.imwrite(str(directories["right_frames"] / f"{frame_name}.png"), right_img)
+                        cv2.imwrite(
+                            str(directories["right_frames"] / f"{frame_name}.png"),
+                            right_img,
+                        )
 
                 # Update progress
                 if i % 5 == 0 or i == len(frames) - 1:
@@ -583,9 +848,15 @@ class VideoProcessor:
                 if settings["keep_intermediates"]:
                     frame_name = left_file.stem
                     if "left_distorted" in directories:
-                        cv2.imwrite(str(directories["left_distorted"] / f"{frame_name}.png"), left_distorted)
+                        cv2.imwrite(
+                            str(directories["left_distorted"] / f"{frame_name}.png"),
+                            left_distorted,
+                        )
                     if "right_distorted" in directories:
-                        cv2.imwrite(str(directories["right_distorted"] / f"{frame_name}.png"), right_distorted)
+                        cv2.imwrite(
+                            str(directories["right_distorted"] / f"{frame_name}.png"),
+                            right_distorted,
+                        )
 
                 # Update progress
                 if i % 5 == 0 or i == len(left_files) - 1:
@@ -605,7 +876,11 @@ class VideoProcessor:
             return False
 
     def _create_vr_frames(
-        self, directories: Dict[str, Path], settings: Dict[str, Any], progress_tracker, total_frames: int
+        self,
+        directories: Dict[str, Path],
+        settings: Dict[str, Any],
+        progress_tracker,
+        total_frames: int,
     ) -> bool:
         """Create final VR frames from processed left/right frames."""
         try:
@@ -625,7 +900,9 @@ class VideoProcessor:
             right_files = sorted(right_dir.glob("*.png"))
 
             if len(left_files) != len(right_files):
-                print(f"Warning: Mismatched frame count: {len(left_files)} left, {len(right_files)} right")
+                print(
+                    f"Warning: Mismatched frame count: {len(left_files)} left, {len(right_files)} right"
+                )
 
             for i, (left_file, right_file) in enumerate(zip(left_files, right_files)):
                 # Load images
@@ -640,18 +917,34 @@ class VideoProcessor:
                 if settings["apply_distortion"]:
                     # Fisheye crop factor: zoom into center to hide curved distortion edges
                     # 0.7 = keep center ~70%, crop ~20% each edge (good for 180° FOV)
-                    fisheye_crop_factor = float(settings.get("fisheye_crop_factor", 0.7))
+                    fisheye_crop_factor = float(
+                        settings.get("fisheye_crop_factor", 0.7)
+                    )
                     fisheye_crop_factor = max(0.5, min(2.0, fisheye_crop_factor))
 
                     left_cropped = apply_fisheye_square_crop(
-                        left_img, settings["per_eye_width"], settings["per_eye_height"], fisheye_crop_factor
+                        left_img,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                        fisheye_crop_factor,
                     )
                     right_cropped = apply_fisheye_square_crop(
-                        right_img, settings["per_eye_width"], settings["per_eye_height"], fisheye_crop_factor
+                        right_img,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                        fisheye_crop_factor,
                     )
 
-                    left_final = resize_image(left_cropped, settings["per_eye_width"], settings["per_eye_height"])
-                    right_final = resize_image(right_cropped, settings["per_eye_width"], settings["per_eye_height"])
+                    left_final = resize_image(
+                        left_cropped,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                    )
+                    right_final = resize_image(
+                        right_cropped,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                    )
                 else:
                     # Regular crop factor: 1.0 = no crop, <1.0 = crop to center region
                     crop_factor = float(settings.get("crop_factor", 1.0))
@@ -660,27 +953,51 @@ class VideoProcessor:
                     left_cropped = apply_center_crop(left_img, crop_factor)
                     right_cropped = apply_center_crop(right_img, crop_factor)
 
-                    left_final = resize_image(left_cropped, settings["per_eye_width"], settings["per_eye_height"])
-                    right_final = resize_image(right_cropped, settings["per_eye_width"], settings["per_eye_height"])
+                    left_final = resize_image(
+                        left_cropped,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                    )
+                    right_final = resize_image(
+                        right_cropped,
+                        settings["per_eye_width"],
+                        settings["per_eye_height"],
+                    )
 
                 # Save intermediate cropped and final frames if keeping intermediates
                 frame_name = left_file.stem
                 if settings["keep_intermediates"]:
                     if "left_cropped" in directories:
-                        cv2.imwrite(str(directories["left_cropped"] / f"{frame_name}.png"), left_cropped)
+                        cv2.imwrite(
+                            str(directories["left_cropped"] / f"{frame_name}.png"),
+                            left_cropped,
+                        )
                     if "right_cropped" in directories:
-                        cv2.imwrite(str(directories["right_cropped"] / f"{frame_name}.png"), right_cropped)
+                        cv2.imwrite(
+                            str(directories["right_cropped"] / f"{frame_name}.png"),
+                            right_cropped,
+                        )
                     if "left_final" in directories:
-                        cv2.imwrite(str(directories["left_final"] / f"{frame_name}.png"), left_final)
+                        cv2.imwrite(
+                            str(directories["left_final"] / f"{frame_name}.png"),
+                            left_final,
+                        )
                     if "right_final" in directories:
-                        cv2.imwrite(str(directories["right_final"] / f"{frame_name}.png"), right_final)
+                        cv2.imwrite(
+                            str(directories["right_final"] / f"{frame_name}.png"),
+                            right_final,
+                        )
 
                 # Create final VR frame
-                vr_frame = create_vr_frame(left_final, right_final, settings["vr_format"])
+                vr_frame = create_vr_frame(
+                    left_final, right_final, settings["vr_format"]
+                )
 
                 # Save VR frame
                 if "vr_frames" in directories:
-                    cv2.imwrite(str(directories["vr_frames"] / f"{frame_name}.png"), vr_frame)
+                    cv2.imwrite(
+                        str(directories["vr_frames"] / f"{frame_name}.png"), vr_frame
+                    )
 
                 # Update progress
                 if i % 5 == 0 or i == len(left_files) - 1:
@@ -700,7 +1017,11 @@ class VideoProcessor:
             return False
 
     def _create_output_video(
-        self, vr_frames_dir: Path, output_dir: Path, original_video: str, settings: Dict[str, Any]
+        self,
+        vr_frames_dir: Path,
+        output_dir: Path,
+        original_video: str,
+        settings: Dict[str, Any],
     ) -> bool:
         """Create final output video with audio."""
 
@@ -734,7 +1055,9 @@ class VideoProcessor:
             cmd.extend(["-i", original_video, "-c:a", "aac", "-shortest"])
 
         # Video encoding settings
-        cmd.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(output_path)])  # High quality
+        cmd.extend(
+            ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(output_path)]
+        )  # High quality
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True)
