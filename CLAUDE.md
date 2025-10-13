@@ -80,7 +80,7 @@ output/
 - **Export Formats**: Additional VR-compatible output formats
 
 ## Dependencies
-- **Core**: Python 3.8+, PyTorch 2.0+, OpenCV 4.8+
+- **Core**: Python 3.8+, PyTorch 2.0+, OpenCV 4.8+, CUDA 13.0+ (required for GPU)
 - **Web UI**: Flask 3.0+, SocketIO 5.3+, Bootstrap 5.3
 - **Video**: FFmpeg with full codec support
 - **AI Model**: Depth Anything V2 (pre-downloaded in /models)
@@ -92,8 +92,8 @@ output/
 
 ## System Requirements
 - **Minimum**: 8GB RAM, modern CPU, 4GB storage
-- **Recommended**: 16GB RAM, CUDA GPU, 10GB storage
-- **Optimal**: 32GB RAM, RTX 4070+ GPU, SSD storage
+- **Recommended**: 16GB RAM, CUDA 13.0+ GPU, 10GB storage
+- **Optimal**: 32GB RAM, CUDA 13.0+ with RTX 4070+ GPU, SSD storage
 
 ## Troubleshooting
 - **"uv.lock parse error"**: Script automatically falls back to virtual environment

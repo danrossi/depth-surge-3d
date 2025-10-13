@@ -39,7 +39,8 @@ The result is 3D video that maintains the original content's motion and timing w
 
 - Python 3.9+
 - FFmpeg
-- CUDA-compatible GPU (optional, for faster processing)
+- CUDA 13.0+ (required for GPU acceleration)
+- CUDA-compatible GPU (optional, but strongly recommended for faster processing)
 
 ## Based on Video-Depth-Anything
 
@@ -52,6 +53,7 @@ The setup script automatically clones the repository and downloads the model wei
 ### Prerequisites
 
 - Python 3.8 or later
+- CUDA 13.0+ (required for GPU acceleration)
 - CUDA-capable GPU (recommended) or CPU
 - FFmpeg for video processing
 - Git
