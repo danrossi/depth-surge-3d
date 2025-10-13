@@ -18,11 +18,9 @@ from pathlib import Path
 import cv2
 import shutil
 
-# Set PyTorch/CUDA environment variables BEFORE any imports
-# This helps prevent memory fragmentation and CUDA initialization errors
+# Set PyTorch memory allocator config BEFORE importing torch
+# This helps prevent memory fragmentation on GPU
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# Prevent CUDA from being initialized too early
-os.environ['CUDA_LAUNCH_BLOCKING'] = '0'
 
 # Import our constants and utilities
 from src.depth_surge_3d.core.constants import INTERMEDIATE_DIRS, MODEL_PATHS, MODEL_PATHS_METRIC
@@ -31,38 +29,9 @@ from src.depth_surge_3d.utils.console import warning as console_warning
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 import numpy as np
-import torch
+# NOTE: torch is imported later (line ~960) to avoid CUDA initialization issues
 import sys
 from pathlib import Path
-
-# Initialize CUDA properly with error handling
-def init_cuda():
-    """Initialize CUDA with proper error handling"""
-    try:
-        if torch.cuda.is_available():
-            # Clear any stale CUDA cache
-            torch.cuda.empty_cache()
-            # Test CUDA initialization
-            device_count = torch.cuda.device_count()
-            if device_count > 0:
-                device_name = torch.cuda.get_device_name(0)
-                print(f"CUDA initialized successfully: {device_name}")
-                return True
-            else:
-                print("CUDA available but no devices found, falling back to CPU")
-                return False
-        else:
-            print("CUDA not available, using CPU")
-            return False
-    except Exception as e:
-        print(f"CUDA initialization error: {e}")
-        print("Falling back to CPU processing")
-        # Force CPU mode if CUDA fails
-        torch.cuda.is_available = lambda: False
-        return False
-
-# Try to initialize CUDA early
-CUDA_AVAILABLE = init_cuda()
 
 # Add src to path for package imports
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
@@ -189,17 +158,17 @@ def get_video_info(video_path):
 
 def get_system_info():
     """Get system information including GPU details"""
-    global CUDA_AVAILABLE
+    import torch  # Import here to avoid early CUDA initialization
 
     info = {
         'gpu_device': 'CPU',
         'vram_usage': 'N/A',
         'device_mode': 'CPU',
-        'cuda_available': CUDA_AVAILABLE
+        'cuda_available': False
     }
 
     try:
-        if CUDA_AVAILABLE and torch.cuda.is_available():
+        if torch.cuda.is_available():
             info['cuda_available'] = True
             info['gpu_device'] = torch.cuda.get_device_name(0)
             info['device_mode'] = 'GPU'
@@ -215,8 +184,6 @@ def get_system_info():
                 info['vram_usage'] = 'N/A'
     except Exception as e:
         vprint(f"Error getting GPU info: {e}")
-        CUDA_AVAILABLE = False
-        info['cuda_available'] = False
 
     return info
 
@@ -360,12 +327,20 @@ class ProgressCallback:
 def process_video_async(session_id, video_path, settings, output_dir):
     """Process video in background thread"""
     global current_processing
-    
+    import torch  # Import here to avoid CUDA initialization issues in main thread
+
     try:
         current_processing['active'] = True
         current_processing['session_id'] = session_id
         current_processing['stop_requested'] = False
-        
+
+        # Check CUDA availability in this thread
+        cuda_available = torch.cuda.is_available()
+        if cuda_available:
+            print(f"CUDA detected: {torch.cuda.get_device_name(0)}")
+        else:
+            print("CUDA not available, using CPU")
+
         # Initialize projector with Video-Depth-Anything model
         # Use model_size setting to select the appropriate model
         model_size = settings.get('model_size', 'vitb')  # Default to Base for 16GB GPUs
@@ -383,32 +358,20 @@ def process_video_async(session_id, video_path, settings, output_dir):
 
         device = settings.get('device', 'auto')
         if device == 'auto':
-            device = 'cuda' if (CUDA_AVAILABLE and torch.cuda.is_available()) else 'cpu'
+            device = 'cuda' if cuda_available else 'cpu'
 
-        # Force CPU if CUDA failed during initialization
-        if device == 'cuda' and not CUDA_AVAILABLE:
-            print("CUDA initialization failed earlier, forcing CPU mode")
-            device = 'cpu'
+        # Fail fast if GPU requested but not available
+        if device == 'cuda' and not cuda_available:
+            raise Exception("GPU (CUDA) requested but not available. Please select 'Auto' or 'Force CPU' in Processing Device settings.")
 
         print(f"Loading {model_size.upper()} {depth_type} Depth model from: {model_path}")
         print(f"Using device: {device.upper()}")
 
-        try:
-            projector = create_stereo_projector(model_path, device, metric=use_metric)
+        projector = create_stereo_projector(model_path, device, metric=use_metric)
 
-            # Ensure the model is loaded before processing
-            if not projector.depth_estimator.load_model():
-                raise Exception("Failed to load depth estimation model")
-        except RuntimeError as e:
-            if 'CUDA' in str(e) and device == 'cuda':
-                print(f"CUDA error during model load: {e}")
-                print("Falling back to CPU")
-                device = 'cpu'
-                projector = create_stereo_projector(model_path, device, metric=use_metric)
-                if not projector.depth_estimator.load_model():
-                    raise Exception("Failed to load depth estimation model on CPU")
-            else:
-                raise
+        # Ensure the model is loaded before processing
+        if not projector.depth_estimator.load_model():
+            raise Exception("Failed to load depth estimation model")
         
         # Get video info for progress tracking
         video_info = get_video_info(video_path)
