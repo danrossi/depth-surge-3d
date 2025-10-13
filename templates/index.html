@@ -159,7 +159,63 @@
             border-radius: 0;
             margin: 15px 0;
         }
-        
+
+        /* Pipeline Step Styles */
+        .pipeline-step {
+            background: var(--bs-card-bg);
+            border-left: 3px solid var(--accent-lime);
+            padding: 15px;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .pipeline-step.active {
+            border-left-color: var(--accent-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+
+        .pipeline-step.completed {
+            border-left-color: #2a2a2a;
+            opacity: 0.7;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            background: var(--accent-lime);
+            color: #000;
+            font-weight: bold;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .step-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-lime);
+            margin: 0;
+        }
+
+        .step-indicator {
+            font-size: 0.85rem;
+            color: var(--accent-lime);
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: rgba(57, 255, 20, 0.1);
+            border-left: 2px solid var(--accent-lime);
+            font-family: 'Courier New', monospace;
+        }
+
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -727,238 +783,267 @@
             <div class="col-12">
                 <div class="settings-panel">
                     <h5><i class="fas fa-cog"></i> Processing Settings</h5>
-                    <div class="row">
-                        <!-- VR Format & Resolution -->
-                        <div class="col-md-4">
-                            <h6><i class="fas fa-vr-cardboard"></i> VR Format & Resolution</h6>
-                            <div class="mb-3">
-                                <label class="form-label">VR Format</label>
-                                <select class="form-select" id="vrFormat">
-                                    <option value="side_by_side" selected>Side by Side (SBS)</option>
-                                    <option value="side_by_side_lr">Side by Side LR (Left-Right)</option>
-                                    <option value="side_by_side_rl">Side by Side RL (Right-Left)</option>
-                                    <option value="over_under">Over Under (Top-Bottom)</option>
-                                    <option value="over_under_lr">Over Under LR (Left-Top)</option>
-                                    <option value="over_under_rl">Over Under RL (Right-Top)</option>
-                                </select>
-                                <small class="form-text text-muted">Choose format compatible with your VR headset</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">VR Resolution <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Square formats optimize for VR headsets, wide formats preserve more original content."></i></label>
-                                <select class="form-select" id="vrResolution">
-                                    <option value="auto" selected>Auto (Match Source Quality & Aspect)</option>
-                                    <optgroup label="Square Formats (VR Optimized)">
-                                                                        <option value="square-480">Square 480 (480×480 per eye - Quick Test Only ⚠️)</option>
-                                <option value="square-720">Square 720 (720×720 per eye - Preview Quality ⚠️)</option>
-                                        <option value="square-1k">Square 1K (1080×1080 per eye)</option>
-                                        <option value="square-2k">Square 2K (1536×1536 per eye)</option>
-                                        <option value="square-3k">Square 3K (1920×1920 per eye)</option>
-                                        <option value="square-4k">Square 4K (2048×2048 per eye)</option>
-                                        <option value="square-5k">Square 5K (2560×2560 per eye)</option>
-                                    </optgroup>
-                                    <optgroup label="16:9 Formats (Standard Wide)">
-                                                                        <option value="16x9-480p">16:9 480p (854×480 per eye - Quick Test Only ⚠️)</option>
-                                <option value="16x9-720p">16:9 720p (1280×720 per eye - Preview Quality ⚠️)</option>
-                                        <option value="16x9-1080p">16:9 1080p (1920×1080 per eye)</option>
-                                        <option value="16x9-1440p">16:9 1440p (2560×1440 per eye)</option>
-                                        <option value="16x9-4k">16:9 4K (3840×2160 per eye)</option>
-                                        <option value="16x9-5k">16:9 5K (5120×2880 per eye)</option>
-                                        <option value="16x9-8k">16:9 8K (7680×4320 per eye)</option>
-                                    </optgroup>
-                                    <optgroup label="Legacy Wide Formats">
-                                        <option value="wide-2k">Wide 2K (2560×1440 per eye)</option>
-                                        <option value="wide-4k">Wide 4K (3840×2160 per eye)</option>
-                                        <option value="ultrawide">Ultra-wide (3840×2160 per eye)</option>
-                                    </optgroup>
-                                    <optgroup label="Cinema Formats (Ultra-wide, recommend over-under)">
-                                        <option value="cinema-2k">Cinema 2K (2048×858 per eye)</option>
-                                        <option value="cinema-4k">Cinema 4K (4096×1716 per eye)</option>
-                                    </optgroup>
-                                    <optgroup label="Custom Resolution">
-                                        <option value="custom">Custom (specify below)</option>
-                                    </optgroup>
-                                </select>
-                                <small class="form-text text-muted">16:9 formats preserve wide content naturally. Cinema formats work best with over-under.</small>
-                            </div>
-                            <div class="mb-3" id="customResolutionDiv" style="display: none;">
-                                <label class="form-label">Custom Resolution (per eye)</label>
-                                <div class="row">
-                                    <div class="col-6">
-                                        <input type="number" class="form-control" id="customWidth" placeholder="Width" min="480" max="7680" step="1">
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="number" class="form-control" id="customHeight" placeholder="Height" min="270" max="4320" step="1">
-                                    </div>
-                                </div>
-                                <small class="form-text text-muted">Specify custom width × height per eye (e.g., 1920 × 1080)</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Stereo Baseline <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Controls 3D strength. Larger = stronger 3D effect but more artifacts. Start with 0.035-0.05 for subtle, clean results."></i></label>
-                                <input type="number" class="form-control" id="baseline" value="0.065" step="0.005" min="0.02" max="0.15">
-                                <small class="form-text text-muted">Distance between virtual cameras in meters (0.02-0.15, default: 0.065 = average human IPD)
-                                <br><strong>Tip:</strong> Reduce to 0.035-0.05 if you see artifacts or warping</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Focal Length <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Works with baseline to control depth perception. Higher = stronger depth separation. Lower = gentler transitions."></i></label>
-                                <input type="number" class="form-control" id="focalLength" value="1000" step="50" min="500" max="2000">
-                                <small class="form-text text-muted">Virtual camera focal length (500-2000px, default: 1000)
-                                <br><strong>Conservative:</strong> 700-800 | <strong>Aggressive:</strong> 1200-1500</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">3D Strength Presets</label>
-                                <div class="btn-group w-100" role="group">
-                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('subtle')">Subtle & Clean</button>
-                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('balanced')">Balanced</button>
-                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('strong')">Strong & Dirty</button>
-                                </div>
-                                <small class="form-text text-muted">Quick presets for common use cases</small>
-                            </div>
-                        </div>
 
-                        <!-- Video Enhancement & Processing -->
-                        <div class="col-md-4">
-                            <h6><i class="fas fa-video"></i> Video Enhancement & Processing</h6>
-                            <div class="mb-3">
-                                <label class="form-label">Depth Model Size <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Smaller models use less VRAM but may be slightly less accurate. Use Small if you have OOM errors."></i></label>
-                                <select class="form-select" id="modelSize">
-                                    <option value="vitb" selected>Base (Balanced, ~8GB VRAM) - Recommended</option>
-                                    <option value="vits">Small (Fast, ~4GB VRAM)</option>
-                                    <option value="vitl">Large (Best Quality, ~12GB VRAM)</option>
-                                </select>
-                                <small class="form-text text-muted">
-                                    <i class="fas fa-memory"></i> Base model recommended for 16GB GPUs<br>
-                                    <i class="fas fa-info-circle"></i> Use Small for 8GB GPUs or high-res videos
-                                </small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Depth Model Type <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Metric models provide actual depth in meters (better for VR). Relative models only provide depth ordering."></i></label>
-                                <select class="form-select" id="depthModelType">
-                                    <option value="metric" selected>Metric Depth (Accurate meters, best for VR)</option>
-                                    <option value="relative">Relative Depth (Ordering only, faster)</option>
-                                </select>
-                                <small class="form-text text-muted">
-                                    <i class="fas fa-ruler"></i> Metric depth recommended for better 3D quality<br>
-                                    <i class="fas fa-brain"></i> Trained on Virtual KITTI and IRS datasets
-                                </small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Target Resolution</label>
-                                <select class="form-select" id="resolution">
-                                    <option value="original">Keep Original</option>
-                                    <option value="720p">720p (1280x720)</option>
-                                    <option value="1080p" selected>1080p (1920x1080)</option>
-                                    <option value="4k">4K (3840x2160)</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Super Sampling</label>
-                                <select class="form-select" id="superSample">
-                                    <option value="auto" selected>Auto (Recommended)</option>
-                                    <option value="none">None (Keep Original)</option>
-                                    <option value="1080p">Force 1080p</option>
-                                    <option value="4k">Force 4K</option>
-                                </select>
-                                <small class="form-text text-muted">Compensates for resolution loss in side-by-side format. Auto: 720p→1080p, 1080p→4K</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Target FPS</label>
-                                <select class="form-select" id="targetFps">
-                                    <option value="original" selected>Keep Original FPS</option>
-                                    <option value="30">30 FPS</option>
-                                    <option value="60">60 FPS</option>
-                                    <option value="120">120 FPS</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Processing Mode <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Serial: frame-by-frame processing. Batch: task-by-task with parallelization for better performance."></i></label>
-                                <select class="form-select" id="processingMode">
-                                    <option value="serial" selected>Serial (Frame-by-Frame)</option>
-                                    <option value="batch">Batch (Task-by-Task + Parallel)</option>
-                                </select>
-                                <small class="form-text text-muted">Batch mode can be faster with parallelization but uses more memory</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Processing Device</label>
-                                <select class="form-select" id="device">
-                                    <option value="auto" selected>Auto (GPU if available)</option>
-                                    <option value="cuda">Force GPU (CUDA)</option>
-                                    <option value="cpu">Force CPU</option>
-                                </select>
-                            </div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="preserveAudio" checked>
-                                <label class="form-check-label" for="preserveAudio">
-                                    Preserve Audio
-                                </label>
-                            </div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="keepIntermediates" checked>
-                                <label class="form-check-label" for="keepIntermediates">
-                                    Keep Intermediate Files
-                                </label>
-                                <small class="text-muted d-block ms-4">
-                                    <i class="fas fa-exclamation-triangle"></i> May use significant disk space (~10-50GB for long videos)
-                                    <br><i class="fas fa-info-circle"></i> Required for batch processing mode
-                                </small>
-                            </div>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
-                                <label class="form-check-label" for="experimentalFrameInterpolation">
-                                    Frame Interpolation (Double FPS)
-                                </label>
-                                <small class="text-muted d-block ms-4">
-                                    <i class="fas fa-flask"></i> Experimental: May cause artifacts
-                                </small>
-                            </div>
+                    <!-- Step 1: Input & Frame Extraction -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <h6 class="step-title">Input & Frame Extraction</h6>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Target Resolution</label>
+                            <select class="form-select" id="resolution">
+                                <option value="original">Keep Original</option>
+                                <option value="720p">720p (1280x720)</option>
+                                <option value="1080p" selected>1080p (1920x1080)</option>
+                                <option value="4k">4K (3840x2160)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Super Sampling</label>
+                            <select class="form-select" id="superSample">
+                                <option value="auto" selected>Auto (Recommended)</option>
+                                <option value="none">None (Keep Original)</option>
+                                <option value="1080p">Force 1080p</option>
+                                <option value="4k">Force 4K</option>
+                            </select>
+                            <small class="form-text text-muted">Compensates for resolution loss in side-by-side format. Auto: 720p→1080p, 1080p→4K</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Target FPS</label>
+                            <select class="form-select" id="targetFps">
+                                <option value="original" selected>Keep Original FPS</option>
+                                <option value="30">30 FPS</option>
+                                <option value="60">60 FPS</option>
+                                <option value="120">120 FPS</option>
+                            </select>
+                        </div>
+                        <div class="step-indicator">Frame resolution after extraction: Calculated at runtime</div>
+                    </div>
 
-                        <!-- Fisheye & Cropping -->
-                        <div class="col-md-4">
-                            <h6><i class="fas fa-circle"></i> Fisheye & Cropping</h6>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="applyDistortion" checked>
-                                    <label class="form-check-label" for="applyDistortion">
-                                        Apply Fisheye Distortion
-                                    </label>
-                                </div>
-                                <small class="form-text text-muted">Enable fisheye distortion for hemispherical VR projection</small>
-                            </div>
-                            <div class="mb-3" id="distortionOptions">
-                                <label class="form-label">Fisheye Projection</label>
-                                <select class="form-select" id="fisheyeProjection">
-                                    <option value="equidistant">Equidistant (f*θ)</option>
-                                    <option value="stereographic" selected>Stereographic (2f*tan(θ/2))</option>
-                                    <option value="equisolid">Equisolid Angle (2f*sin(θ/2))</option>
-                                    <option value="orthographic">Orthographic (f*sin(θ))</option>
-                                </select>
-                                <small class="form-text text-muted">Mathematical projection model for fisheye lens</small>
-                            </div>
-                            <div class="mb-3" id="distortionK2Options">
-                                <label class="form-label">Field of View (degrees)</label>
-                                <input type="number" class="form-control" id="fisheyeFov" value="180" step="5" min="75" max="180">
-                                <small class="form-text text-muted">Fisheye field of view (75-180 degrees, default: 180 for full dome)</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Center crop factor for non-fisheye. 1.0 = no crop, 0.5 = crop to 50% of center. Lower values crop more."></i></label>
-                                <input type="number" class="form-control" id="cropFactor" value="1.0" step="0.05" min="0.5" max="1.0">
-                                <small class="form-text text-muted">Center crop factor to reduce edge artifacts (0.5-1.0, default: 1.0 - no crop)</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye zoom/crop. 1.0 = inscribed circle, <1.0 = zoom in to hide curved edges, >1.0 = show more (may reveal distortion). Typical: 0.5-1.2"></i></label>
-                                <input type="number" class="form-control" id="fisheyeCropFactor" value="0.7" step="0.05" min="0.5" max="2.0">
-                                <small class="form-text text-muted">Fisheye crop factor (0.5-2.0, default: 0.7 = zoom in 70% to hide curved edges)</small>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Hole Filling Quality <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Advanced uses depth-guided multi-stage filling for better quality but slower processing. Fast uses simple inpainting for speed."></i></label>
-                                <select class="form-select" id="holeFillQuality">
-                                    <option value="fast" selected>Fast (Simple Inpainting)</option>
-                                    <option value="advanced">Advanced (Multi-Stage + Depth Guidance)</option>
-                                </select>
-                                <small class="form-text text-muted">Balance between processing speed and stereo quality
-                                <br><strong>Warning:</strong> Advanced is 3-5x slower with often minimal visual improvement</small>
-                            </div>
+                    <!-- Step 2: Depth Analysis -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <h6 class="step-title">Depth Analysis</h6>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Depth Model Size <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Smaller models use less VRAM but may be slightly less accurate. Use Small if you have OOM errors."></i></label>
+                            <select class="form-select" id="modelSize">
+                                <option value="vitb" selected>Base (Balanced, ~8GB VRAM) - Recommended</option>
+                                <option value="vits">Small (Fast, ~4GB VRAM)</option>
+                                <option value="vitl">Large (Best Quality, ~12GB VRAM)</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-memory"></i> Base model recommended for 16GB GPUs<br>
+                                <i class="fas fa-info-circle"></i> Use Small for 8GB GPUs or high-res videos
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Depth Model Type <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Metric models provide actual depth in meters (better for VR). Relative models only provide depth ordering."></i></label>
+                            <select class="form-select" id="depthModelType">
+                                <option value="metric" selected>Metric Depth (Accurate meters, best for VR)</option>
+                                <option value="relative">Relative Depth (Ordering only, faster)</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-ruler"></i> Metric depth recommended for better 3D quality<br>
+                                <i class="fas fa-brain"></i> Trained on Virtual KITTI and IRS datasets
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Processing Device</label>
+                            <select class="form-select" id="device">
+                                <option value="auto" selected>Auto (GPU if available)</option>
+                                <option value="cuda">Force GPU (CUDA)</option>
+                                <option value="cpu">Force CPU</option>
+                            </select>
+                        </div>
+                        <div class="step-indicator">Video-Depth-Anything processes in 32-frame chunks with temporal consistency</div>
+                    </div>
+
+                    <!-- Step 3: Stereo Pair Generation -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">3</span>
+                            <h6 class="step-title">Stereo Pair Generation</h6>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stereo Baseline <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Controls 3D strength. Larger = stronger 3D effect but more artifacts. Start with 0.035-0.05 for subtle, clean results."></i></label>
+                            <input type="number" class="form-control" id="baseline" value="0.065" step="0.005" min="0.02" max="0.15">
+                            <small class="form-text text-muted">Distance between virtual cameras in meters (0.02-0.15, default: 0.065 = average human IPD)
+                            <br><strong>Tip:</strong> Reduce to 0.035-0.05 if you see artifacts or warping</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Focal Length <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Works with baseline to control depth perception. Higher = stronger depth separation. Lower = gentler transitions."></i></label>
+                            <input type="number" class="form-control" id="focalLength" value="1000" step="50" min="500" max="2000">
+                            <small class="form-text text-muted">Virtual camera focal length (500-2000px, default: 1000)
+                            <br><strong>Conservative:</strong> 700-800 | <strong>Aggressive:</strong> 1200-1500</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">3D Strength Presets</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('subtle')">Subtle & Clean</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('balanced')">Balanced</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="set3DPreset('strong')">Strong & Dirty</button>
+                            </div>
+                            <small class="form-text text-muted">Quick presets for common use cases</small>
+                        </div>
+                        <div class="step-indicator">Preview showing [L][R] disparity</div>
+                    </div>
+
+                    <!-- Step 4: VR Lens Simulation -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">4</span>
+                            <h6 class="step-title">VR Lens Simulation</h6>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="applyDistortion" checked>
+                                <label class="form-check-label" for="applyDistortion">
+                                    Apply Fisheye Distortion
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">Enable fisheye distortion for hemispherical VR projection</small>
+                        </div>
+                        <div class="mb-3" id="distortionOptions">
+                            <label class="form-label">Fisheye Projection</label>
+                            <select class="form-select" id="fisheyeProjection">
+                                <option value="equidistant">Equidistant (f*θ)</option>
+                                <option value="stereographic" selected>Stereographic (2f*tan(θ/2))</option>
+                                <option value="equisolid">Equisolid Angle (2f*sin(θ/2))</option>
+                                <option value="orthographic">Orthographic (f*sin(θ))</option>
+                            </select>
+                            <small class="form-text text-muted">Mathematical projection model for fisheye lens</small>
+                        </div>
+                        <div class="mb-3" id="distortionK2Options">
+                            <label class="form-label">Field of View (degrees)</label>
+                            <input type="number" class="form-control" id="fisheyeFov" value="180" step="5" min="75" max="180">
+                            <small class="form-text text-muted">Fisheye field of view (75-180 degrees, default: 180 for full dome)</small>
+                        </div>
+                        <div class="step-indicator">FOV: 180° → hemispherical projection</div>
+                    </div>
+
+                    <!-- Step 5: Final Processing -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">5</span>
+                            <h6 class="step-title">Final Processing</h6>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Center crop factor for non-fisheye. 1.0 = no crop, 0.5 = crop to 50% of center. Lower values crop more."></i></label>
+                            <input type="number" class="form-control" id="cropFactor" value="1.0" step="0.05" min="0.5" max="1.0">
+                            <small class="form-text text-muted">Center crop factor to reduce edge artifacts (0.5-1.0, default: 1.0 - no crop)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye zoom/crop. 1.0 = inscribed circle, <1.0 = zoom in to hide curved edges, >1.0 = show more (may reveal distortion). Typical: 0.5-1.2"></i></label>
+                            <input type="number" class="form-control" id="fisheyeCropFactor" value="0.7" step="0.05" min="0.5" max="2.0">
+                            <small class="form-text text-muted">Fisheye crop factor (0.5-2.0, default: 0.7 = zoom in 70% to hide curved edges)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Hole Filling Quality <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Advanced uses depth-guided multi-stage filling for better quality but slower processing. Fast uses simple inpainting for speed."></i></label>
+                            <select class="form-select" id="holeFillQuality">
+                                <option value="fast" selected>Fast (Simple Inpainting)</option>
+                                <option value="advanced">Advanced (Multi-Stage + Depth Guidance)</option>
+                            </select>
+                            <small class="form-text text-muted">Balance between processing speed and stereo quality
+                            <br><strong>Warning:</strong> Advanced is 3-5x slower with often minimal visual improvement</small>
+                        </div>
+                        <div class="step-indicator">Cropping removes edge artifacts from stereo generation</div>
+                    </div>
+
+                    <!-- Step 6: VR Format & Output -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">6</span>
+                            <h6 class="step-title">VR Format & Output</h6>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">VR Format</label>
+                            <select class="form-select" id="vrFormat">
+                                <option value="side_by_side" selected>Side by Side (SBS)</option>
+                                <option value="side_by_side_lr">Side by Side LR (Left-Right)</option>
+                                <option value="side_by_side_rl">Side by Side RL (Right-Left)</option>
+                                <option value="over_under">Over Under (Top-Bottom)</option>
+                                <option value="over_under_lr">Over Under LR (Left-Top)</option>
+                                <option value="over_under_rl">Over Under RL (Right-Top)</option>
+                            </select>
+                            <small class="form-text text-muted">Choose format compatible with your VR headset</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">VR Resolution <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Square formats optimize for VR headsets, wide formats preserve more original content."></i></label>
+                            <select class="form-select" id="vrResolution">
+                                <option value="auto" selected>Auto (Match Source Quality & Aspect)</option>
+                                <optgroup label="Square Formats (VR Optimized)">
+                                                                    <option value="square-480">Square 480 (480×480 per eye - Quick Test Only ⚠️)</option>
+                            <option value="square-720">Square 720 (720×720 per eye - Preview Quality ⚠️)</option>
+                                    <option value="square-1k">Square 1K (1080×1080 per eye)</option>
+                                    <option value="square-2k">Square 2K (1536×1536 per eye)</option>
+                                    <option value="square-3k">Square 3K (1920×1920 per eye)</option>
+                                    <option value="square-4k">Square 4K (2048×2048 per eye)</option>
+                                    <option value="square-5k">Square 5K (2560×2560 per eye)</option>
+                                </optgroup>
+                                <optgroup label="16:9 Formats (Standard Wide)">
+                                                                    <option value="16x9-480p">16:9 480p (854×480 per eye - Quick Test Only ⚠️)</option>
+                            <option value="16x9-720p">16:9 720p (1280×720 per eye - Preview Quality ⚠️)</option>
+                                    <option value="16x9-1080p">16:9 1080p (1920×1080 per eye)</option>
+                                    <option value="16x9-1440p">16:9 1440p (2560×1440 per eye)</option>
+                                    <option value="16x9-4k">16:9 4K (3840×2160 per eye)</option>
+                                    <option value="16x9-5k">16:9 5K (5120×2880 per eye)</option>
+                                    <option value="16x9-8k">16:9 8K (7680×4320 per eye)</option>
+                                </optgroup>
+                                <optgroup label="Legacy Wide Formats">
+                                    <option value="wide-2k">Wide 2K (2560×1440 per eye)</option>
+                                    <option value="wide-4k">Wide 4K (3840×2160 per eye)</option>
+                                    <option value="ultrawide">Ultra-wide (3840×2160 per eye)</option>
+                                </optgroup>
+                                <optgroup label="Cinema Formats (Ultra-wide, recommend over-under)">
+                                    <option value="cinema-2k">Cinema 2K (2048×858 per eye)</option>
+                                    <option value="cinema-4k">Cinema 4K (4096×1716 per eye)</option>
+                                </optgroup>
+                                <optgroup label="Custom Resolution">
+                                    <option value="custom">Custom (specify below)</option>
+                                </optgroup>
+                            </select>
+                            <small class="form-text text-muted">16:9 formats preserve wide content naturally. Cinema formats work best with over-under.</small>
+                        </div>
+                        <div class="mb-3" id="customResolutionDiv" style="display: none;">
+                            <label class="form-label">Custom Resolution (per eye)</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <input type="number" class="form-control" id="customWidth" placeholder="Width" min="480" max="7680" step="1">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" class="form-control" id="customHeight" placeholder="Height" min="270" max="4320" step="1">
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Specify custom width × height per eye (e.g., 1920 × 1080)</small>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="preserveAudio" checked>
+                            <label class="form-check-label" for="preserveAudio">
+                                Preserve Audio
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="keepIntermediates" checked>
+                            <label class="form-check-label" for="keepIntermediates">
+                                Keep Intermediate Files
+                            </label>
+                            <small class="text-muted d-block ms-4">
+                                <i class="fas fa-exclamation-triangle"></i> May use significant disk space (~10-50GB for long videos)
+                            </small>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="experimentalFrameInterpolation">
+                            <label class="form-check-label" for="experimentalFrameInterpolation">
+                                Frame Interpolation (Double FPS)
+                            </label>
+                            <small class="text-muted d-block ms-4">
+                                <i class="fas fa-flask"></i> Experimental: May cause artifacts
+                            </small>
+                        </div>
+                        <div class="step-indicator">Final output: Calculated at runtime</div>
                     </div>
 
 
@@ -1527,7 +1612,6 @@
                 device: document.getElementById('device').value,
                 model_size: document.getElementById('modelSize').value,
                 use_metric_depth: document.getElementById('depthModelType').value === 'metric',
-                processing_mode: document.getElementById('processingMode').value,
                 super_sample: document.getElementById('superSample').value,
                 apply_distortion: document.getElementById('applyDistortion').checked,
                 fisheye_projection: document.getElementById('fisheyeProjection').value,
@@ -1952,33 +2036,7 @@
             updateRangeInfo();
         });
         document.getElementById('device').addEventListener('change', updateSystemInfo);
-        
-        // Show warning when batch mode is selected
-        document.getElementById('processingMode').addEventListener('change', function() {
-            const isBatch = this.value === 'batch';
-            const keepIntermediatesCheckbox = document.getElementById('keepIntermediates');
-            const warning = document.getElementById('batchModeWarning');
-            
-            if (isBatch) {
-                // Show warning and ensure keep intermediates is checked
-                if (!warning) {
-                    const warningDiv = document.createElement('div');
-                    warningDiv.id = 'batchModeWarning';
-                    warningDiv.className = 'alert alert-warning mt-2';
-                    warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Batch Mode:</strong> Keep Intermediate Files must be enabled for batch processing to work correctly.';
-                    this.parentNode.appendChild(warningDiv);
-                }
-                keepIntermediatesCheckbox.checked = true;
-                keepIntermediatesCheckbox.disabled = true;
-            } else {
-                // Remove warning and re-enable checkbox
-                if (warning) {
-                    warning.remove();
-                }
-                keepIntermediatesCheckbox.disabled = false;
-            }
-        });
-        
+
         // Toggle fisheye distortion options
         document.getElementById('applyDistortion').addEventListener('change', function() {
             const distortionOptions = document.getElementById('distortionOptions');
@@ -2129,8 +2187,7 @@
                 device: document.getElementById('device').value,
                 modelSize: document.getElementById('modelSize').value,
                 depthModelType: document.getElementById('depthModelType').value,
-                processingMode: document.getElementById('processingMode').value,
-                
+
                 // Audio and intermediates
                 preserveAudio: document.getElementById('preserveAudio').checked,
                 keepIntermediates: document.getElementById('keepIntermediates').checked,
@@ -2237,7 +2294,7 @@
         function setupAutoSave() {
             const settingsElements = [
                 'startTime', 'endTime', 'vrFormat', 'vrResolution', 'baseline', 'focalLength',
-                'resolution', 'targetFps', 'superSample', 'device', 'modelSize', 'depthModelType', 'processingMode', 'preserveAudio', 'keepIntermediates',
+                'resolution', 'targetFps', 'superSample', 'device', 'modelSize', 'depthModelType', 'preserveAudio', 'keepIntermediates',
                 'applyDistortion', 'fisheyeProjection', 'fisheyeFov', 'cropFactor', 'fisheyeCropFactor', 'holeFillQuality',
                 'experimentalFrameInterpolation'
             ];
