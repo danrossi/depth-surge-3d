@@ -790,27 +790,32 @@
                             <span class="step-number">1</span>
                             <h6 class="step-title">Input & Frame Extraction</h6>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Target Resolution</label>
-                            <select class="form-select" id="resolution">
-                                <option value="original">Keep Original</option>
-                                <option value="720p">720p (1280x720)</option>
-                                <option value="1080p" selected>1080p (1920x1080)</option>
-                                <option value="4k">4K (3840x2160)</option>
-                            </select>
+
+                        <!-- Source video info display -->
+                        <div class="alert alert-info" id="step1SourceInfo" style="display: none;">
+                            <strong>Source Video:</strong> <span id="step1SourceRes">--</span> @ <span id="step1SourceFps">--</span> fps
                         </div>
+
                         <div class="mb-3">
+                            <label class="form-label">Frame Rescaling <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fast FFmpeg rescaling (not AI upscaling). Use to downscale 4K→1080p for speed, or upscale 720p→1080p to compensate for quality loss in side-by-side VR format."></i></label>
+                            <select class="form-select" id="resolution">
+                                <option value="original" selected>Keep Original Resolution</option>
+                                <option value="720p">Rescale to 720p (1280×720)</option>
+                                <option value="1080p">Rescale to 1080p (1920×1080)</option>
+                                <option value="4k">Rescale to 4K (3840×2160)</option>
+                            </select>
+                            <small class="form-text text-muted"><i class="fas fa-tachometer-alt"></i> Uses fast FFmpeg Lanczos scaling (not AI upscaling, won't alter visual style)</small>
+                        </div>
+                        <div class="mb-3" style="display: none;">
                             <label class="form-label">Super Sampling</label>
                             <select class="form-select" id="superSample">
-                                <option value="auto" selected>Auto (Recommended)</option>
-                                <option value="none">None (Keep Original)</option>
+                                <option value="none" selected>None (Keep Original)</option>
                                 <option value="1080p">Force 1080p</option>
                                 <option value="4k">Force 4K</option>
                             </select>
-                            <small class="form-text text-muted">Compensates for resolution loss in side-by-side format. Auto: 720p→1080p, 1080p→4K</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Target FPS</label>
+                            <label class="form-label">Target FPS <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Frame rate for processing. Higher FPS = smoother motion but longer processing time."></i></label>
                             <select class="form-select" id="targetFps">
                                 <option value="original" selected>Keep Original FPS</option>
                                 <option value="30">30 FPS</option>
@@ -818,7 +823,9 @@
                                 <option value="120">120 FPS</option>
                             </select>
                         </div>
-                        <div class="step-indicator">Frame resolution after extraction: Calculated at runtime</div>
+                        <div class="step-indicator" id="step1Indicator">
+                            <strong>After extraction:</strong> <span id="step1FinalRes">--</span> @ <span id="step1FinalFps">--</span> fps
+                        </div>
                     </div>
 
                     <!-- Step 2: Depth Analysis -->
@@ -858,7 +865,10 @@
                                 <option value="cpu">Force CPU</option>
                             </select>
                         </div>
-                        <div class="step-indicator">Video-Depth-Anything processes in 32-frame chunks with temporal consistency</div>
+                        <small class="form-text text-muted">
+    <i class="fas fa-cube"></i> Video-Depth-Anything processes in 32-frame chunks with temporal consistency<br>
+    <i class="fas fa-link"></i> <a href="https://github.com/DepthAnything/Depth-Anything-V2" target="_blank" style="color: var(--accent-lime);">Model Info & Documentation</a>
+</small>
                     </div>
 
                     <!-- Step 3: Stereo Pair Generation -->
@@ -895,13 +905,13 @@
                     <div class="pipeline-step">
                         <div class="step-header">
                             <span class="step-number">4</span>
-                            <h6 class="step-title">VR Lens Simulation</h6>
+                            <h6 class="step-title">Fisheye Distortion</h6>
                         </div>
                         <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="applyDistortion" checked>
                                 <label class="form-check-label" for="applyDistortion">
-                                    Apply Fisheye Distortion
+                                    Enable Fisheye Processing
                                 </label>
                             </div>
                             <small class="form-text text-muted">Enable fisheye distortion for hemispherical VR projection</small>
@@ -931,14 +941,20 @@
                             <h6 class="step-title">Final Processing</h6>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Center crop factor for non-fisheye. 1.0 = no crop, 0.5 = crop to 50% of center. Lower values crop more."></i></label>
+                            <label class="form-label">Crop Factor (Standard) <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Applied when fisheye is disabled. Crops from center to remove stereo edge artifacts. 1.0 = no crop, 0.5 = keep center 50%."></i></label>
                             <input type="number" class="form-control" id="cropFactor" value="1.0" step="0.05" min="0.5" max="1.0">
-                            <small class="form-text text-muted">Center crop factor to reduce edge artifacts (0.5-1.0, default: 1.0 - no crop)</small>
+                            <small class="form-text text-muted">
+    <i class="fas fa-crop"></i> Removes edge artifacts from stereo generation (rectangular crop from center)<br>
+    <strong>1.0</strong> = no crop | <strong>0.8</strong> = keep center 80% | <strong>0.5</strong> = keep center 50%
+</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Fisheye zoom/crop. 1.0 = inscribed circle, <1.0 = zoom in to hide curved edges, >1.0 = show more (may reveal distortion). Typical: 0.5-1.2"></i></label>
+                            <label class="form-label">Fisheye Crop Factor <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Applied when fisheye is enabled. Controls zoom level of the fisheye projection. <1.0 zooms in to hide curved edges, >1.0 shows more field of view."></i></label>
                             <input type="number" class="form-control" id="fisheyeCropFactor" value="0.7" step="0.05" min="0.5" max="2.0">
-                            <small class="form-text text-muted">Fisheye crop factor (0.5-2.0, default: 0.7 = zoom in 70% to hide curved edges)</small>
+                            <small class="form-text text-muted">
+    <i class="fas fa-search-plus"></i> Zoom/crop for fisheye projection (hemispherical to fit VR display)<br>
+    <strong>0.5</strong> = zoomed in (hides edges) | <strong>0.7</strong> = balanced (default) | <strong>1.0</strong> = full circle | <strong>>1.0</strong> = show more FOV
+</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Hole Filling Quality <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Advanced uses depth-guided multi-stage filling for better quality but slower processing. Fast uses simple inpainting for speed."></i></label>
@@ -1007,6 +1023,13 @@
                             </select>
                             <small class="form-text text-muted">16:9 formats preserve wide content naturally. Cinema formats work best with over-under.</small>
                         </div>
+                        <div class="alert alert-secondary mt-2" style="font-size: 0.85rem;">
+    <strong><i class="fas fa-info-circle"></i> VR Format Guide:</strong><br>
+    • <strong>Side-by-Side (SBS):</strong> Most common. Left and right views placed horizontally. Final output is 2× width (e.g., 1920×1080 per eye → 3840×1080 total)<br>
+    • <strong>Over-Under:</strong> Stacked vertically. Better for ultra-wide/cinema formats. Final output is 2× height<br>
+    • <strong>Square formats:</strong> 1:1 aspect per eye, common for VR headsets (e.g., 1080×1080 per eye = 2:1 total in SBS)<br>
+    • <strong>16:9 formats:</strong> Standard widescreen, preserves original content aspect ratio naturally
+</div>
                         <div class="mb-3" id="customResolutionDiv" style="display: none;">
                             <label class="form-label">Custom Resolution (per eye)</label>
                             <div class="row">
@@ -1040,7 +1063,8 @@
                                 Frame Interpolation (Double FPS)
                             </label>
                             <small class="text-muted d-block ms-4">
-                                <i class="fas fa-flask"></i> Experimental: May cause artifacts
+                                <i class="fas fa-flask"></i> Experimental: Uses FFmpeg minterpolate (fast, deterministic)<br>
+                                <i class="fas fa-info-circle"></i> Not AI-based - won't alter visual style but may show motion artifacts
                             </small>
                         </div>
                         <div class="step-indicator">Final output: Calculated at runtime</div>
@@ -1504,6 +1528,9 @@
             // Update system info
             updateSystemInfo();
 
+            // Update Step 1 display
+            updateStep1Display();
+
             // Set default end time to video duration only if not already set
             if (!document.getElementById('endTime').value) {
                 const minutes = Math.floor(info.duration / 60);
@@ -1530,6 +1557,43 @@
                 document.getElementById('vramUsage').textContent = '--';
                 document.getElementById('deviceMode').textContent = '--';
             });
+        }
+
+        // Update Step 1 display with source and final resolution/FPS
+        function updateStep1Display() {
+            if (!currentVideoInfo) return;
+
+            // Show source video info
+            document.getElementById('step1SourceRes').textContent = `${currentVideoInfo.width}×${currentVideoInfo.height}`;
+            document.getElementById('step1SourceFps').textContent = currentVideoInfo.fps;
+            document.getElementById('step1SourceInfo').style.display = 'block';
+
+            // Calculate final resolution
+            const resolutionSelect = document.getElementById('resolution').value;
+            let finalWidth = currentVideoInfo.width;
+            let finalHeight = currentVideoInfo.height;
+
+            if (resolutionSelect === '720p') {
+                finalWidth = 1280;
+                finalHeight = 720;
+            } else if (resolutionSelect === '1080p') {
+                finalWidth = 1920;
+                finalHeight = 1080;
+            } else if (resolutionSelect === '4k') {
+                finalWidth = 3840;
+                finalHeight = 2160;
+            }
+
+            // Calculate final FPS
+            const fpsSelect = document.getElementById('targetFps').value;
+            let finalFps = currentVideoInfo.fps;
+            if (fpsSelect !== 'original') {
+                finalFps = parseInt(fpsSelect);
+            }
+
+            // Update display
+            document.getElementById('step1FinalRes').textContent = `${finalWidth}×${finalHeight}`;
+            document.getElementById('step1FinalFps').textContent = finalFps;
         }
 
         // Parse time string to seconds
@@ -2030,10 +2094,14 @@
         });
 
         // Update system info when settings change
-        document.getElementById('resolution').addEventListener('change', updateSystemInfo);
+        document.getElementById('resolution').addEventListener('change', function() {
+            updateSystemInfo();
+            updateStep1Display();
+        });
         document.getElementById('targetFps').addEventListener('change', function() {
             updateSystemInfo();
             updateRangeInfo();
+            updateStep1Display();
         });
         document.getElementById('device').addEventListener('change', updateSystemInfo);
 
