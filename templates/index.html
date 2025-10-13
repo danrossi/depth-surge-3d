@@ -975,7 +975,7 @@
                             <h6 class="step-title">VR Format & Output</h6>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">VR Format</label>
+                            <label class="form-label">VR Format <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Side-by-Side (SBS): Most common. Left and right views placed horizontally. Final output is 2× width (e.g., 1920×1080 per eye → 3840×1080 total). Over-Under: Stacked vertically. Better for ultra-wide/cinema. Final output is 2× height."></i></label>
                             <select class="form-select" id="vrFormat">
                                 <option value="side_by_side" selected>Side by Side (SBS)</option>
                                 <option value="side_by_side_lr">Side by Side LR (Left-Right)</option>
@@ -987,7 +987,7 @@
                             <small class="form-text text-muted">Choose format compatible with your VR headset</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">VR Resolution <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Square formats optimize for VR headsets, wide formats preserve more original content."></i></label>
+                            <label class="form-label">VR Resolution per Eye <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Square formats (1:1): Optimized for VR headsets. Example: 1080×1080 per eye = 2160×1080 total (SBS) or 1080×2160 (Over-Under). 16:9 formats: Standard widescreen, preserves original content aspect ratio naturally."></i></label>
                             <select class="form-select" id="vrResolution">
                                 <option value="auto" selected>Auto (Match Source Quality & Aspect)</option>
                                 <optgroup label="Square Formats (VR Optimized)">
@@ -1021,15 +1021,8 @@
                                     <option value="custom">Custom (specify below)</option>
                                 </optgroup>
                             </select>
-                            <small class="form-text text-muted">16:9 formats preserve wide content naturally. Cinema formats work best with over-under.</small>
+                            <small class="form-text text-muted">Resolution shown is per eye. Total output depends on VR format (SBS doubles width, Over-Under doubles height).</small>
                         </div>
-                        <div class="alert alert-secondary mt-2" style="font-size: 0.85rem;">
-    <strong><i class="fas fa-info-circle"></i> VR Format Guide:</strong><br>
-    • <strong>Side-by-Side (SBS):</strong> Most common. Left and right views placed horizontally. Final output is 2× width (e.g., 1920×1080 per eye → 3840×1080 total)<br>
-    • <strong>Over-Under:</strong> Stacked vertically. Better for ultra-wide/cinema formats. Final output is 2× height<br>
-    • <strong>Square formats:</strong> 1:1 aspect per eye, common for VR headsets (e.g., 1080×1080 per eye = 2:1 total in SBS)<br>
-    • <strong>16:9 formats:</strong> Standard widescreen, preserves original content aspect ratio naturally
-</div>
                         <div class="mb-3" id="customResolutionDiv" style="display: none;">
                             <label class="form-label">Custom Resolution (per eye)</label>
                             <div class="row">
@@ -1063,8 +1056,8 @@
                                 Frame Interpolation (Double FPS)
                             </label>
                             <small class="text-muted d-block ms-4">
-                                <i class="fas fa-flask"></i> Experimental: Uses FFmpeg minterpolate (fast, deterministic)<br>
-                                <i class="fas fa-info-circle"></i> Not AI-based - won't alter visual style but may show motion artifacts
+                                <i class="fas fa-flask"></i> Experimental: Applies FFmpeg minterpolate to final VR video output<br>
+                                <i class="fas fa-info-circle"></i> Not AI-based, won't alter visual style. May show motion artifacts.
                             </small>
                         </div>
                         <div class="step-indicator">Final output: Calculated at runtime</div>
