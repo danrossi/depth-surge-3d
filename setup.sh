@@ -47,44 +47,44 @@ else
     pip install -r requirements.txt
 fi
 
-# Download Depth-Anything-V2 repository if not present
-if [ ! -d "depth_anything_v2_repo" ]; then
-    echo "🔄 Downloading Depth-Anything-V2 repository..."
-    git clone https://github.com/DepthAnything/Depth-Anything-V2.git depth_anything_v2_repo
+# Download Video-Depth-Anything repository if not present
+if [ ! -d "video_depth_anything_repo" ]; then
+    echo "🔄 Downloading Video-Depth-Anything repository..."
+    git clone https://github.com/DepthAnything/Video-Depth-Anything.git video_depth_anything_repo
     if [ $? -eq 0 ]; then
-        echo "✅ Depth-Anything-V2 repository downloaded successfully"
+        echo "✅ Video-Depth-Anything repository downloaded successfully"
     else
-        echo "❌ Failed to download Depth-Anything-V2 repository"
+        echo "❌ Failed to download Video-Depth-Anything repository"
         exit 1
     fi
 else
-    echo "✅ Depth-Anything-V2 repository already exists"
+    echo "✅ Video-Depth-Anything repository already exists"
 fi
 
 # Create models directory if not present
 mkdir -p models
 
-# Download Depth-Anything-V2-Large model if not present
-model_path="models/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth"
+# Download Video-Depth-Anything-Large model if not present
+model_path="models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth"
 if [ ! -f "$model_path" ]; then
-    echo "🔄 Downloading Depth-Anything-V2-Large model (this may take a while)..."
-    mkdir -p "models/Depth-Anything-V2-Large"
-    
+    echo "🔄 Downloading Video-Depth-Anything-Large model (~1.3GB, this may take a while)..."
+    mkdir -p "models/Video-Depth-Anything-Large"
+
     # Try using curl first, then wget as fallback
     if command_exists curl; then
-        curl -L "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth" \
+        curl -L "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth" \
              -o "$model_path" --progress-bar
     elif command_exists wget; then
-        wget "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth" \
+        wget "https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth" \
              -O "$model_path" --progress=bar
     else
         echo "❌ Error: Neither curl nor wget found. Please install one of them to download the model."
         echo "   You can manually download the model from:"
-        echo "   https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth"
+        echo "   https://huggingface.co/depth-anything/Video-Depth-Anything-Large/resolve/main/video_depth_anything_vitl.pth"
         echo "   and place it at: $model_path"
         exit 1
     fi
-    
+
     if [ -f "$model_path" ]; then
         echo "✅ Model downloaded successfully"
         echo "📊 Model size: $(du -h "$model_path" | cut -f1)"
@@ -93,7 +93,7 @@ if [ ! -f "$model_path" ]; then
         exit 1
     fi
 else
-    echo "✅ Depth-Anything-V2-Large model already exists"
+    echo "✅ Video-Depth-Anything-Large model already exists"
     echo "📊 Model size: $(du -h "$model_path" | cut -f1)"
 fi
 
@@ -125,7 +125,11 @@ echo "   python depth_surge_3d.py --help"
 echo "   python depth_surge_3d.py input_video.mp4"
 echo ""
 echo "🔧 Available models:"
-echo "   - Depth-Anything-V2-Large (335M params) - ✅ Downloaded"
+echo "   - Video-Depth-Anything-Large (335M params) - ✅ Downloaded"
+echo ""
+echo "📦 Additional models available (optional):"
+echo "   ./download_models.sh small  # Video-Depth-Anything-Small (24.8M params, fastest)"
+echo "   ./download_models.sh base   # Video-Depth-Anything-Base (97.5M params, balanced)"
 echo ""
 echo "💡 Tips:"
 echo "   - Use --vr-resolution 16x9-720p for quick tests"

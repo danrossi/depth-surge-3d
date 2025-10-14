@@ -1,23 +1,27 @@
 # Depth Surge 3D - Claude Development Notes
 
 ## Project Overview
-A comprehensive 2D to 3D VR video converter using Depth Anything V2 for depth estimation and advanced FFmpeg processing for high-quality stereo pair generation.
+A comprehensive 2D to 3D VR video converter using Video-Depth-Anything for temporal-consistent depth estimation and advanced FFmpeg processing for high-quality stereo pair generation.
+
+**Current Version**: 0.7.7
 
 ## Key Features Implemented
 - **Command-line Interface**: Full-featured CLI with time range selection, resolution control, and VR format options
 - **Web UI**: Modern dark-themed Flask interface with real-time progress tracking and live frame previews
-- **Experimental Frame Interpolation**: Optional motion-compensated interpolation using FFmpeg's minterpolate (may produce artifacts)
-- **Audio Preservation**: Time-synchronized audio extraction and combination
+- **Resume Capability**: Intelligent step-level resume that skips completed processing stages
+- **Audio Preservation**: Immediate lossless FLAC extraction with time-synchronized audio in final output
 - **Symmetric Stereo Generation**: Proper half-disparity shifts for both left and right eyes
-- **Multiple VR Formats**: Side-by-side and over-under variants
-- **Serial & Batch Processing**: Frame-by-frame or task-batched processing modes
+- **Multiple VR Formats**: Side-by-side and over-under variants with auto-detection
+- **Generation-Specific Storage**: Self-contained timestamped output directories with original video
+- **Temporal Consistency**: Video-Depth-Anything with 32-frame sliding windows for smooth depth
 
 ## Technical Architecture
-- **Backend**: Flask + SocketIO for real-time communication
-- **AI Model**: Depth Anything V2 (ViT-Large) for depth estimation
+- **Backend**: Flask + SocketIO (threading async_mode) for real-time communication
+- **AI Model**: Video-Depth-Anything (Large/Base/Small) for temporal-consistent depth estimation
 - **Video Processing**: FFmpeg for frame extraction, enhancement, and final video assembly
-- **Progress Tracking**: WebSocket-based real-time updates with sub-progress bars
+- **Progress Tracking**: 7-step weighted progress system with WebSocket-based real-time updates
 - **GPU Acceleration**: CUDA support with automatic fallback to CPU
+- **Storage Architecture**: Generation-specific directories eliminating redundant uploads
 
 ## Development Commands
 ```bash
@@ -40,8 +44,10 @@ git add -A && git commit -m "message"  # Commit changes
 2. **Symmetric Stereo Pairs**: Both eyes receive proper disparity shifts (not just one)
 3. **Dark Theme UI**: Desktop-optimized interface for professional use
 4. **Progress Tracking**: Unified interface supporting both CLI (tqdm) and WebSocket (Flask) progress reporting
-5. **Timestamped Output**: Organized output directories with video name and timestamp
-6. **Experimental Features**: Frame interpolation marked as experimental due to potential artifacts
+5. **Generation-Specific Storage**: Each processing session in self-contained timestamped directory with original video
+6. **Immediate Audio Extraction**: Audio extracted to lossless FLAC on upload for reuse in final video
+7. **Step-Level Resume**: Comprehensive resume functionality that skips completed steps (7-step pipeline)
+8. **Temporal Consistency**: Video-Depth-Anything processes in 32-frame chunks with overlap for smooth depth transitions
 
 ## Performance Characteristics
 - **GPU Processing**: ~2-4 seconds per output frame on RTX 4070 Ti SUPER
@@ -52,14 +58,23 @@ git add -A && git commit -m "message"  # Commit changes
 ## Output Structure
 ```
 output/
-├── video_name_20250615_143022/
-│   ├── frames/              # Enhanced extracted frames
-│   ├── depth_maps/          # AI-generated depth maps
-│   ├── left_frames/         # Left stereo images
-│   ├── right_frames/        # Right stereo images
-│   ├── vr_frames/          # Combined VR frames
-│   └── video_name_3D_side_by_side_0118-0133.mp4
+└── timestamp_videoname_timestamp/
+    ├── original_video.mp4      # Source video (uploaded or copied)
+    ├── original_audio.flac     # Pre-extracted lossless audio
+    ├── frames/                 # Enhanced extracted frames
+    ├── depth_maps/            # AI-generated depth maps (if --keep-intermediates)
+    ├── left_frames/           # Left stereo images (if --keep-intermediates)
+    ├── right_frames/          # Right stereo images (if --keep-intermediates)
+    ├── vr_frames/             # Combined VR frames
+    ├── settings.json          # Processing parameters and metadata
+    └── videoname_3D_side_by_side_0118-0133.mp4  # Final output
 ```
+
+**Key Changes from Previous Architecture:**
+- **No uploads/ directory**: Videos saved directly to generation-specific output directory
+- **Self-contained sessions**: All files for one conversion in one timestamped directory
+- **Pre-extracted audio**: Lossless FLAC extracted immediately, reused in final video
+- **Resume-friendly**: Original video always available in output directory for resume functionality
 
 ## VR Compatibility
 - **Oculus/Meta Headsets**: Side-by-side format
@@ -101,11 +116,73 @@ output/
 - **Slow processing**: Verify GPU acceleration or use `--device cpu`
 - **Out of memory**: Reduce resolution with `--resolution 720p`
 
-## Code Quality
+## Code Quality Standards
+
+### Refactoring Rules (Strict Requirements)
+1. **Complexity Limit**: All functions MUST have McCabe complexity ≤10
+   - Use helper methods to break down complex logic
+   - Extract nested loops and conditionals into separate functions
+   - Aim for single responsibility per function
+
+2. **Type Hints**: Complete type annotations required on all functions
+   - Parameters must have type hints
+   - Return values must have type hints
+   - Use typing module for complex types (List, Dict, Optional, Tuple, etc.)
+
+3. **Error Handling**: Comprehensive try-catch blocks with graceful fallbacks
+   - Catch specific exceptions where possible
+   - Log errors with context
+   - Provide user-friendly error messages
+
+4. **Documentation**: Clear docstrings with parameter descriptions
+   - Use triple-quoted strings for all functions
+   - Document parameters, return values, and exceptions
+   - Include usage examples for complex functions
+
+5. **Code Style**: Black formatting, flake8 linting (must pass)
+   - Run `black .` before committing
+   - Run `flake8 .` and fix all violations
+   - Line length: 100 characters (configured in pyproject.toml)
+
+### Code Quality Metrics
 - **Error Handling**: Comprehensive try-catch with graceful fallbacks
 - **Progress Tracking**: Detailed progress callbacks with stage information
-- **Memory Management**: Efficient frame processing and cleanup
+- **Memory Management**: Efficient frame processing with chunked depth map generation
 - **Cross-platform**: Windows, macOS, and Linux compatibility
+
+## Processing Pipeline (7 Steps)
+
+Each step has resume capability that checks for existing intermediate files:
+
+1. **Frame Extraction**: FFmpeg extracts frames, skipped if frames/ exists
+2. **Depth Map Generation**: Video-Depth-Anything creates depth maps in 32-frame chunks, skipped if depth_maps/ exists (when --keep-intermediates)
+3. **Disparity Conversion**: Converts depth to horizontal pixel shifts
+4. **Stereo Pair Creation**: Generates left/right eye images, skipped if stereo pairs exist (when --keep-intermediates)
+5. **Fisheye Distortion**: Optional lens simulation, skipped if distorted frames exist
+6. **VR Frame Assembly**: Combines stereo pairs into side-by-side or over-under, skipped if vr_frames/ exists
+7. **Audio Integration**: Creates final video with pre-extracted FLAC audio
+
+## Documentation Structure
+
+- **README.md** (concise): Quick start, key features, links to detailed docs
+- **docs/INSTALLATION.md**: Detailed setup, model management, verification
+- **docs/USAGE.md**: Command-line and web UI usage examples
+- **docs/PARAMETERS.md**: All CLI options, stereo tuning, artifact management
+- **docs/TROUBLESHOOTING.md**: Common issues, performance tips, limitations
+- **docs/ARCHITECTURE.md**: Technical pipeline, processing details, code structure
 
 ## Git Workflow
 The project uses conventional commits with detailed descriptions and co-authorship attribution to Claude Code.
+
+**Commit Message Format:**
+```
+type(scope): brief description
+
+Detailed explanation of changes and reasoning.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Types**: feat, fix, refactor, docs, chore, test, perf
