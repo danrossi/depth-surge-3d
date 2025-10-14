@@ -191,6 +191,33 @@ class VideoProcessor:
         progress_tracker,
     ) -> Optional[np.ndarray]:
         """Execute Step 2: Generate depth maps."""
+        # Check if depth maps already exist (only if keep_intermediates is enabled)
+        if settings.get("keep_intermediates") and "depth_maps" in directories:
+            depth_maps_dir = directories["depth_maps"]
+            if depth_maps_dir.exists():
+                existing_depth_maps = sorted(list(depth_maps_dir.glob("*.png")))
+                if existing_depth_maps and len(existing_depth_maps) >= len(frame_files):
+                    print("Step 2/7: Skipping depth map generation (depth maps already exist)")
+                    print(f"  Found {len(existing_depth_maps):04d} existing depth maps")
+                    print(saved_to(f"  Location: {depth_maps_dir}\n"))
+                    # Load existing depth maps
+                    depth_maps = []
+                    for depth_file in existing_depth_maps[:len(frame_files)]:
+                        depth_img = cv2.imread(str(depth_file), cv2.IMREAD_GRAYSCALE)
+                        if depth_img is not None:
+                            depth_maps.append(depth_img.astype(float) / 255.0)
+                    if len(depth_maps) == len(frame_files):
+                        if progress_tracker:
+                            progress_tracker.update_progress(
+                                "Skipped depth map generation (already exists)",
+                                phase="depth_estimation",
+                                frame_num=len(depth_maps),
+                                step_name="Depth Map Generation",
+                                step_progress=len(depth_maps),
+                                step_total=len(depth_maps),
+                            )
+                        return np.array(depth_maps)
+
         print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
         print("  Using memory-efficient chunked processing...")
         progress_tracker.update_progress(
@@ -249,6 +276,29 @@ class VideoProcessor:
         progress_tracker,
     ) -> bool:
         """Execute Step 4: Create stereo pairs."""
+        # Check if stereo pairs already exist (only if keep_intermediates is enabled)
+        if settings.get("keep_intermediates") and "left_frames" in directories and "right_frames" in directories:
+            left_dir = directories["left_frames"]
+            right_dir = directories["right_frames"]
+            if left_dir.exists() and right_dir.exists():
+                existing_left = sorted(list(left_dir.glob("*.png")))
+                existing_right = sorted(list(right_dir.glob("*.png")))
+                if (existing_left and existing_right and
+                    len(existing_left) >= len(frames) and len(existing_right) >= len(frames)):
+                    print("Step 4/7: Skipping stereo pair creation (stereo pairs already exist)")
+                    print(f"  Found {len(existing_left):04d} left and {len(existing_right):04d} right frames")
+                    print(saved_to(f"  Location: {left_dir} & {right_dir}\n"))
+                    if progress_tracker:
+                        progress_tracker.update_progress(
+                            "Skipped stereo pair creation (already exists)",
+                            phase="stereo_generation",
+                            frame_num=len(existing_left),
+                            step_name="Stereo Pair Creation",
+                            step_progress=len(existing_left),
+                            step_total=len(existing_left),
+                        )
+                    return True
+
         print("Step 4/7: Creating stereo pairs...")
         success = self._create_stereo_pairs(frames, depth_maps, frame_files, directories, settings, progress_tracker)
         if not success:
@@ -268,6 +318,31 @@ class VideoProcessor:
         if not settings["apply_distortion"]:
             print("Step 5/7: Skipping fisheye distortion (disabled)\n")
             return True
+
+        # Check if distorted frames already exist (only if keep_intermediates is enabled)
+        if settings.get("keep_intermediates") and "left_distorted" in directories and "right_distorted" in directories:
+            left_distorted_dir = directories["left_distorted"]
+            right_distorted_dir = directories["right_distorted"]
+            if left_distorted_dir.exists() and right_distorted_dir.exists():
+                existing_left = sorted(list(left_distorted_dir.glob("*.png")))
+                existing_right = sorted(list(right_distorted_dir.glob("*.png")))
+                # Count source frames for comparison
+                left_files = sorted(directories["left_frames"].glob("*.png")) if "left_frames" in directories else []
+                if (existing_left and existing_right and
+                    len(existing_left) >= len(left_files) and len(existing_right) >= len(left_files)):
+                    print("Step 5/7: Skipping fisheye distortion (distorted frames already exist)")
+                    print(f"  Found {len(existing_left):04d} distorted left and {len(existing_right):04d} distorted right frames")
+                    print(saved_to(f"  Location: {left_distorted_dir} & {right_distorted_dir}\n"))
+                    if progress_tracker:
+                        progress_tracker.update_progress(
+                            "Skipped fisheye distortion (already exists)",
+                            phase="distortion",
+                            frame_num=len(existing_left),
+                            step_name="Fisheye Distortion",
+                            step_progress=len(existing_left),
+                            step_total=len(existing_left),
+                        )
+                    return True
 
         print("Step 5/7: Applying fisheye distortion...")
         left_files = sorted(directories["left_frames"].glob("*.png")) if "left_frames" in directories else []
