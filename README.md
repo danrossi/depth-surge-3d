@@ -20,7 +20,7 @@ Depth Surge 3D transforms flat videos into stereoscopic 3D for VR headsets using
 ### Installation
 
 ```bash
-git clone https://github.com/tok/depth-surge-3d.git depth-surge-3d
+git clone https://github.com/Tok/depth-surge-3d.git depth-surge-3d
 cd depth-surge-3d
 chmod +x setup.sh
 ./setup.sh
