@@ -589,6 +589,79 @@ class VideoProcessor:
 
         return np.array(frames_list)
 
+    def _determine_chunk_params(self, frame_w: int, frame_h: int) -> tuple[int, int]:
+        """Determine chunk size and input size based on frame resolution."""
+        megapixels = (frame_h * frame_w) / 1_000_000
+        print(f"  Frame resolution: {frame_w}x{frame_h} ({megapixels:.1f}MP)")
+
+        # Very aggressive chunking for limited VRAM
+        # Model uses ~9GB, only ~6GB free on typical 16GB GPU
+        if megapixels > 8.0:  # >8MP (4K is ~8.3MP)
+            return 4, 384  # Ultra-tiny chunks for 4K, reduce input resolution
+        elif megapixels > 2.0:  # >2MP (1080p is 2.1MP)
+            return 8, 384  # Very small chunks for HD
+        elif megapixels > 1.0:  # >1MP (720p is 0.9MP)
+            return 16, 448  # Small chunks for 720p
+        else:
+            return 32, 518  # Standard chunks for SD
+
+    def _clear_gpu_memory(self):
+        """Clear GPU cache and print available memory."""
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            mem_free = torch.cuda.mem_get_info()[0] / (1024**3)  # Convert to GB
+            print(f"  GPU memory freed: {mem_free:.2f} GB available")
+
+    def _load_chunk_frames(
+        self, chunk_files: List[Path], settings: Dict[str, Any]
+    ) -> Optional[List]:
+        """Load and optionally supersample frames for a chunk."""
+        chunk_frames = []
+        for frame_file in chunk_files:
+            frame = cv2.imread(str(frame_file))
+            if frame is None:
+                print(f"Warning: Could not load {frame_file}")
+                continue
+
+            # Apply super sampling if needed
+            if settings["super_sample"] != "none":
+                target_width = max(frame.shape[1], settings["per_eye_width"] * 2)
+                target_height = max(frame.shape[0], settings["per_eye_height"] * 2)
+                frame = resize_image(frame, target_width, target_height)
+
+            chunk_frames.append(frame)
+
+        return chunk_frames if chunk_frames else None
+
+    def _process_chunk_depth(
+        self,
+        chunk_frames: List,
+        chunk_files: List[Path],
+        settings: Dict[str, Any],
+        directories: Dict[str, Path],
+        input_size: int,
+    ) -> Optional[np.ndarray]:
+        """Process depth for a chunk and optionally save results."""
+        # Normalize target_fps
+        target_fps = settings.get("target_fps", 30)
+        if target_fps is None or str(target_fps) == "None" or target_fps == "original":
+            target_fps = 30
+
+        # Estimate depth
+        chunk_frames_array = np.array(chunk_frames)
+        chunk_depth_maps = self.depth_estimator.estimate_depth_batch(
+            chunk_frames_array, target_fps=target_fps, input_size=input_size, fp32=False
+        )
+
+        # Save depth maps immediately to free memory
+        if settings["keep_intermediates"] and "depth_maps" in directories:
+            self._save_depth_maps(
+                chunk_depth_maps, chunk_files, directories["depth_maps"]
+            )
+
+        return chunk_depth_maps
+
     def _generate_depth_maps_chunked(
         self,
         frame_files: List[Path],
@@ -601,42 +674,22 @@ class VideoProcessor:
 
         Processes frames in small batches to avoid CUDA OOM errors.
         """
-        # Determine chunk size based on resolution
+        # Determine chunk parameters based on resolution
         sample_frame = cv2.imread(str(frame_files[0]))
         if sample_frame is None:
             return None
 
         frame_h, frame_w = sample_frame.shape[:2]
-        megapixels = (frame_h * frame_w) / 1_000_000
-
-        print(f"  Frame resolution: {frame_w}x{frame_h} ({megapixels:.1f}MP)")
-
-        # Very aggressive chunking for limited VRAM
-        # Model uses ~9GB, only ~6GB free on typical 16GB GPU
-        if megapixels > 8.0:  # >8MP (4K is ~8.3MP)
-            chunk_size = 4  # Ultra-tiny chunks for 4K
-            input_size = 384  # Reduce depth model input resolution
-        elif megapixels > 2.0:  # >2MP (1080p is 2.1MP)
-            chunk_size = 8  # Very small chunks for HD
-            input_size = 384  # Also reduce for HD
-        elif megapixels > 1.0:  # >1MP (720p is 0.9MP)
-            chunk_size = 16  # Small chunks for 720p
-            input_size = 448
-        else:
-            chunk_size = 32  # Standard chunks for SD
-            input_size = 518
+        chunk_size, input_size = self._determine_chunk_params(frame_w, frame_h)
 
         print(
             f"  Processing in chunks of {chunk_size} frames (input_size={input_size})..."
         )
 
-        # Clear GPU cache before processing to maximize available VRAM
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            mem_free = torch.cuda.mem_get_info()[0] / (1024**3)  # Convert to GB
-            print(f"  GPU memory freed: {mem_free:.2f} GB available")
+        # Clear GPU cache before processing
+        self._clear_gpu_memory()
 
+        # Process all chunks
         all_depth_maps = []
         num_frames = len(frame_files)
         total_chunks = (num_frames + chunk_size - 1) // chunk_size
@@ -646,66 +699,25 @@ class VideoProcessor:
             chunk_files = frame_files[chunk_start:chunk_end]
             chunk_num = chunk_start // chunk_size + 1
 
-            # Load chunk of frames
-            chunk_frames = []
-            for frame_file in chunk_files:
-                frame = cv2.imread(str(frame_file))
-                if frame is None:
-                    print(f"Warning: Could not load {frame_file}")
-                    continue
-
-                # Apply super sampling if needed
-                if settings["super_sample"] != "none":
-                    target_width = max(frame.shape[1], settings["per_eye_width"] * 2)
-                    target_height = max(frame.shape[0], settings["per_eye_height"] * 2)
-                    frame = resize_image(frame, target_width, target_height)
-
-                chunk_frames.append(frame)
-
+            # Load chunk frames
+            chunk_frames = self._load_chunk_frames(chunk_files, settings)
             if not chunk_frames:
                 print(f"Error: No frames loaded in chunk")
                 return None
 
             # Process chunk for depth
             try:
-                target_fps = settings.get("target_fps", 30)
-                if (
-                    target_fps is None
-                    or str(target_fps) == "None"
-                    or target_fps == "original"
-                ):
-                    target_fps = 30
-
-                chunk_frames_array = np.array(chunk_frames)
-                chunk_depth_maps = self.depth_estimator.estimate_depth_batch(
-                    chunk_frames_array,
-                    target_fps=target_fps,
-                    input_size=input_size,
-                    fp32=False,
+                chunk_depth_maps = self._process_chunk_depth(
+                    chunk_frames, chunk_files, settings, directories, input_size
                 )
-
                 all_depth_maps.extend(chunk_depth_maps)
 
-                # Save depth maps immediately to free memory
-                if settings["keep_intermediates"] and "depth_maps" in directories:
-                    depth_dir = directories["depth_maps"]
-                    for i, (depth_map, frame_file) in enumerate(
-                        zip(chunk_depth_maps, chunk_files)
-                    ):
-                        depth_vis = (depth_map * 255).astype("uint8")
-                        frame_name = frame_file.stem
-                        cv2.imwrite(str(depth_dir / f"{frame_name}.png"), depth_vis)
-
-                # Clear references to free memory
+                # Clear references and GPU cache
                 del chunk_frames
-                del chunk_frames_array
                 del chunk_depth_maps
+                self._clear_gpu_memory()
 
-                # Clear GPU cache between chunks
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-                # Update progress with chunk info
+                # Update progress
                 progress_tracker.update_progress(
                     f"Chunk {chunk_num}/{total_chunks}: Depth maps {chunk_end}/{num_frames}",
                     phase="depth_estimation",
@@ -875,6 +887,138 @@ class VideoProcessor:
             print(f"Error applying distortion: {e}")
             return False
 
+    def _get_stereo_source_dirs(
+        self, directories: Dict[str, Path], settings: Dict[str, Any]
+    ) -> Optional[tuple[Path, Path]]:
+        """Determine source directories for stereo frames."""
+        if settings["apply_distortion"] and "left_distorted" in directories:
+            return directories["left_distorted"], directories["right_distorted"]
+        elif "left_frames" in directories:
+            return directories["left_frames"], directories["right_frames"]
+        else:
+            print("Error: No stereo frames found")
+            return None
+
+    def _process_fisheye_frame_pair(
+        self, left_img, right_img, settings: Dict[str, Any]
+    ) -> tuple:
+        """Process frame pair with fisheye distortion applied."""
+        fisheye_crop_factor = max(
+            0.5, min(2.0, float(settings.get("fisheye_crop_factor", 0.7)))
+        )
+
+        left_cropped = apply_fisheye_square_crop(
+            left_img,
+            settings["per_eye_width"],
+            settings["per_eye_height"],
+            fisheye_crop_factor,
+        )
+        right_cropped = apply_fisheye_square_crop(
+            right_img,
+            settings["per_eye_width"],
+            settings["per_eye_height"],
+            fisheye_crop_factor,
+        )
+
+        left_final = resize_image(
+            left_cropped, settings["per_eye_width"], settings["per_eye_height"]
+        )
+        right_final = resize_image(
+            right_cropped, settings["per_eye_width"], settings["per_eye_height"]
+        )
+
+        return left_cropped, right_cropped, left_final, right_final
+
+    def _process_regular_frame_pair(
+        self, left_img, right_img, settings: Dict[str, Any]
+    ) -> tuple:
+        """Process frame pair without fisheye distortion."""
+        crop_factor = max(0.5, min(1.0, float(settings.get("crop_factor", 1.0))))
+
+        left_cropped = apply_center_crop(left_img, crop_factor)
+        right_cropped = apply_center_crop(right_img, crop_factor)
+
+        left_final = resize_image(
+            left_cropped, settings["per_eye_width"], settings["per_eye_height"]
+        )
+        right_final = resize_image(
+            right_cropped, settings["per_eye_width"], settings["per_eye_height"]
+        )
+
+        return left_cropped, right_cropped, left_final, right_final
+
+    def _save_vr_intermediate_frames(
+        self,
+        directories: Dict[str, Path],
+        frame_name: str,
+        left_cropped,
+        right_cropped,
+        left_final,
+        right_final,
+    ):
+        """Save intermediate cropped and final frames."""
+        if "left_cropped" in directories:
+            cv2.imwrite(
+                str(directories["left_cropped"] / f"{frame_name}.png"), left_cropped
+            )
+        if "right_cropped" in directories:
+            cv2.imwrite(
+                str(directories["right_cropped"] / f"{frame_name}.png"), right_cropped
+            )
+        if "left_final" in directories:
+            cv2.imwrite(
+                str(directories["left_final"] / f"{frame_name}.png"), left_final
+            )
+        if "right_final" in directories:
+            cv2.imwrite(
+                str(directories["right_final"] / f"{frame_name}.png"), right_final
+            )
+
+    def _process_single_vr_frame(
+        self,
+        left_file: Path,
+        right_file: Path,
+        directories: Dict[str, Path],
+        settings: Dict[str, Any],
+    ) -> bool:
+        """Process a single VR frame pair."""
+        # Load images
+        left_img = cv2.imread(str(left_file))
+        right_img = cv2.imread(str(right_file))
+
+        if left_img is None or right_img is None:
+            print(f"Warning: Could not load {left_file} or {right_file}")
+            return False
+
+        # Process frame pair based on distortion setting
+        if settings["apply_distortion"]:
+            left_cropped, right_cropped, left_final, right_final = (
+                self._process_fisheye_frame_pair(left_img, right_img, settings)
+            )
+        else:
+            left_cropped, right_cropped, left_final, right_final = (
+                self._process_regular_frame_pair(left_img, right_img, settings)
+            )
+
+        # Save intermediate frames if requested
+        frame_name = left_file.stem
+        if settings["keep_intermediates"]:
+            self._save_vr_intermediate_frames(
+                directories,
+                frame_name,
+                left_cropped,
+                right_cropped,
+                left_final,
+                right_final,
+            )
+
+        # Create and save final VR frame
+        vr_frame = create_vr_frame(left_final, right_final, settings["vr_format"])
+        if "vr_frames" in directories:
+            cv2.imwrite(str(directories["vr_frames"] / f"{frame_name}.png"), vr_frame)
+
+        return True
+
     def _create_vr_frames(
         self,
         directories: Dict[str, Path],
@@ -884,16 +1028,12 @@ class VideoProcessor:
     ) -> bool:
         """Create final VR frames from processed left/right frames."""
         try:
-            # Determine source directory based on whether distortion was applied
-            if settings["apply_distortion"] and "left_distorted" in directories:
-                left_dir = directories["left_distorted"]
-                right_dir = directories["right_distorted"]
-            elif "left_frames" in directories:
-                left_dir = directories["left_frames"]
-                right_dir = directories["right_frames"]
-            else:
-                print("Error: No stereo frames found")
+            # Determine source directories
+            stereo_dirs = self._get_stereo_source_dirs(directories, settings)
+            if not stereo_dirs:
                 return False
+
+            left_dir, right_dir = stereo_dirs
 
             # Get frame files
             left_files = sorted(left_dir.glob("*.png"))
@@ -904,102 +1044,13 @@ class VideoProcessor:
                     f"Warning: Mismatched frame count: {len(left_files)} left, {len(right_files)} right"
                 )
 
+            # Process each frame pair
             for i, (left_file, right_file) in enumerate(zip(left_files, right_files)):
-                # Load images
-                left_img = cv2.imread(str(left_file))
-                right_img = cv2.imread(str(right_file))
-
-                if left_img is None or right_img is None:
-                    print(f"Warning: Could not load {left_file} or {right_file}")
-                    continue
-
-                # Apply cropping and resizing
-                if settings["apply_distortion"]:
-                    # Fisheye crop factor: zoom into center to hide curved distortion edges
-                    # 0.7 = keep center ~70%, crop ~20% each edge (good for 180° FOV)
-                    fisheye_crop_factor = float(
-                        settings.get("fisheye_crop_factor", 0.7)
-                    )
-                    fisheye_crop_factor = max(0.5, min(2.0, fisheye_crop_factor))
-
-                    left_cropped = apply_fisheye_square_crop(
-                        left_img,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                        fisheye_crop_factor,
-                    )
-                    right_cropped = apply_fisheye_square_crop(
-                        right_img,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                        fisheye_crop_factor,
-                    )
-
-                    left_final = resize_image(
-                        left_cropped,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                    )
-                    right_final = resize_image(
-                        right_cropped,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                    )
-                else:
-                    # Regular crop factor: 1.0 = no crop, <1.0 = crop to center region
-                    crop_factor = float(settings.get("crop_factor", 1.0))
-                    crop_factor = max(0.5, min(1.0, crop_factor))
-
-                    left_cropped = apply_center_crop(left_img, crop_factor)
-                    right_cropped = apply_center_crop(right_img, crop_factor)
-
-                    left_final = resize_image(
-                        left_cropped,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                    )
-                    right_final = resize_image(
-                        right_cropped,
-                        settings["per_eye_width"],
-                        settings["per_eye_height"],
-                    )
-
-                # Save intermediate cropped and final frames if keeping intermediates
-                frame_name = left_file.stem
-                if settings["keep_intermediates"]:
-                    if "left_cropped" in directories:
-                        cv2.imwrite(
-                            str(directories["left_cropped"] / f"{frame_name}.png"),
-                            left_cropped,
-                        )
-                    if "right_cropped" in directories:
-                        cv2.imwrite(
-                            str(directories["right_cropped"] / f"{frame_name}.png"),
-                            right_cropped,
-                        )
-                    if "left_final" in directories:
-                        cv2.imwrite(
-                            str(directories["left_final"] / f"{frame_name}.png"),
-                            left_final,
-                        )
-                    if "right_final" in directories:
-                        cv2.imwrite(
-                            str(directories["right_final"] / f"{frame_name}.png"),
-                            right_final,
-                        )
-
-                # Create final VR frame
-                vr_frame = create_vr_frame(
-                    left_final, right_final, settings["vr_format"]
+                self._process_single_vr_frame(
+                    left_file, right_file, directories, settings
                 )
 
-                # Save VR frame
-                if "vr_frames" in directories:
-                    cv2.imwrite(
-                        str(directories["vr_frames"] / f"{frame_name}.png"), vr_frame
-                    )
-
-                # Update progress
+                # Update progress periodically
                 if i % 5 == 0 or i == len(left_files) - 1:
                     progress_tracker.update_progress(
                         "Creating VR frames",
