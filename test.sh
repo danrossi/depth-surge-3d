@@ -3,14 +3,15 @@
 # Quick test script to verify setup
 echo "Testing Depth Surge 3D setup..."
 
-# Check if virtual environment exists
-if [ ! -d ".venv" ]; then
+# Check if virtual environment exists and activate it
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
+elif [ -d "venv" ]; then
+    source venv/bin/activate
+else
     echo "Error: Virtual environment not found. Run ./setup.sh first."
     exit 1
 fi
-
-# Activate virtual environment
-source .venv/bin/activate
 
 # Test basic imports
 echo "Testing Python imports..."
@@ -26,51 +27,31 @@ if torch.cuda.is_available():
     print(f'✓ CUDA device: {torch.cuda.get_device_name(0)}')
 "
 
-# Test if depth_anything_v2 module loads
-echo "Testing Depth Anything V2 module..."
+# Test if video_depth_anything module loads
+echo "Testing Video-Depth-Anything module..."
 python -c "
 import sys
 from pathlib import Path
 
-# Add the depth_anything_v2_repo to path (same as depth_estimator.py does)
-repo_path = Path('depth_anything_v2_repo')
+# Add the video_depth_anything_repo to path
+repo_path = Path('video_depth_anything_repo')
 if repo_path.exists():
     sys.path.insert(0, str(repo_path))
 
 try:
-    from depth_anything_v2.dpt import DepthAnythingV2
-    print('✓ Depth Anything V2 module imported successfully')
+    from video_depth_anything import VideoDepthAnything
+    print('✓ Video-Depth-Anything module imported successfully')
 except Exception as e:
-    print(f'✗ Error importing Depth Anything V2: {e}')
+    print(f'✗ Error importing Video-Depth-Anything: {e}')
 "
 
 # Test if model file exists
-if [ -f "models/Depth-Anything-V2-Large/depth_anything_v2_vitl.pth" ]; then
-    echo "✓ Model file found"
+if [ -f "models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth" ]; then
+    echo "✓ Video-Depth-Anything-Large model file found"
+    echo "  Model size: $(du -h 'models/Video-Depth-Anything-Large/video_depth_anything_vitl.pth' | cut -f1)"
 else
     echo "✗ Model file not found at expected location"
-fi
-
-# Test if input video exists
-if [ -f "input_video.mp4" ]; then
-    echo "✓ Input video found"
-    # Get video info
-    python -c "
-import cv2
-cap = cv2.VideoCapture('input_video.mp4')
-fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-duration = frame_count / fps if fps > 0 else 0
-cap.release()
-print(f'  - Resolution: {width}x{height}')
-print(f'  - FPS: {fps:.2f}')
-print(f'  - Duration: {duration:.1f} seconds')
-print(f'  - Frame count: {frame_count}')
-"
-else
-    echo "✗ Input video not found (input_video.mp4)"
+    echo "  Run ./download_models.sh large to download"
 fi
 
 # Test ffmpeg
@@ -83,5 +64,7 @@ fi
 
 echo ""
 echo "Setup test complete!"
-echo "If all items show ✓, you can run: ./start.sh START_TIME END_TIME"
-echo "Example: ./start.sh 00:10 00:15"
+echo ""
+echo "Next steps:"
+echo "  Web UI:  ./run_ui.sh"
+echo "  CLI:     python depth_surge_3d.py input_video.mp4"

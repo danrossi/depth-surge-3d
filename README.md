@@ -107,9 +107,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **Third-Party Components**: Please review the [Video-Depth-Anything license](https://github.com/DepthAnything/Video-Depth-Anything) for terms before commercial use.
 
-## Quality Expectations
+## Quality Expectations, Parallax-Glitch and Z-Collapse Slopcore Aesthetics
 
 This tool converts monocular video to pseudo-stereo using AI depth estimation. Results can be compelling for many types of content but will never match true stereo cameras or specialized VR equipment.
+
+**Embracing the artifacts**: Expect algorithmic stereo divergence, synthetic depth layers, and monocular hallucinations. These AI-generated depth discontinuities create a unique aesthetic - depth-drift, disparity shimmer, and temporal judder become part of the experience.
 
 **Best results with:**
 - Clear depth variation (landscapes, interiors, people)
