@@ -552,28 +552,52 @@ def upload_video():
     if not video_info:
         return jsonify({"error": "Invalid video file"}), 400
 
-    # Extract high-quality audio to FLAC immediately
+    # Extract high-quality audio to FLAC immediately (if video has audio)
     audio_path = output_dir / "original_audio.flac"
     try:
-        result = subprocess.run(
+        # First check if video has an audio stream
+        probe_result = subprocess.run(
             [
-                "ffmpeg",
-                "-i",
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(video_path),
-                "-vn",  # No video
-                "-acodec",
-                "flac",  # FLAC codec for lossless audio
-                "-compression_level",
-                "8",  # Maximum compression (still lossless)
-                str(audio_path),
             ],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=10,
         )
-        if result.returncode != 0:
-            print(f"Warning: Audio extraction failed: {result.stderr}")
-            audio_path = None  # Continue without audio
+
+        if probe_result.stdout.strip() == "audio":
+            # Video has audio, extract it
+            result = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i",
+                    str(video_path),
+                    "-vn",  # No video
+                    "-acodec",
+                    "flac",  # FLAC codec for lossless audio
+                    "-compression_level",
+                    "8",  # Maximum compression (still lossless)
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                print(f"Warning: Audio extraction failed: {result.stderr}")
+                audio_path = None
+        else:
+            # No audio stream in video
+            audio_path = None
     except Exception as e:
         print(f"Warning: Audio extraction error: {e}")
         audio_path = None
