@@ -583,7 +583,7 @@ def save_processing_settings(
             "source_video_name": Path(source_video_path).name,
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "created_timestamp": time.time(),
-            "project_version": "1.0.0",
+            "project_version": "0.8.0",
             "processing_status": "in_progress",
         },
         "video_properties": video_properties,
