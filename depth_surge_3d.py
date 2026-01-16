@@ -127,7 +127,13 @@ Note: Always uses Video-Depth-Anything for temporal consistency across frames.
     )
 
     # Model and device
-    parser.add_argument("--model", help="Path to Video-Depth-Anything model file (auto-downloads if missing)")
+    parser.add_argument("--model", help="Path to model file (V2) or model name (V3, e.g., 'large', 'base', 'small')")
+    parser.add_argument(
+        "--depth-model-version",
+        choices=["v2", "v3"],
+        default="v2",
+        help="Depth model version: v2 (Video-Depth-Anything, default) or v3 (Depth-Anything-3, better VRAM efficiency)",
+    )
     parser.add_argument(
         "--device", choices=["auto", "cuda", "cpu"], default="auto", help="Processing device (default: auto)"
     )
@@ -285,7 +291,8 @@ def main():
         success = projector.process_video(
             video_path=video_path,
             output_dir=args.resume,
-            **{k: v for k, v in processing_settings.items() if k not in ["output_dir", "device"]},
+            **{k: v for k, v in processing_settings.items() if k not in ["output_dir", "device", "per_eye_width", "video_path", "per_eye_height", "vr_output_width", "vr_output_height",
+                                                                         "source_width", "source_height", "source_fps"]},
         )
 
         if success:
@@ -301,7 +308,12 @@ def main():
 
     # Create stereo projector
     try:
-        projector = create_stereo_projector(args.model, args.device, args.metric if hasattr(args, "metric") else False)
+        projector = create_stereo_projector(
+            args.model,
+            args.device,
+            args.metric if hasattr(args, "metric") else False,
+            args.depth_model_version,
+        )
 
         if args.model_info:
             info = projector.get_model_info()
@@ -312,10 +324,11 @@ def main():
             return 0
 
         # Process video
+        model_name = "Depth-Anything-V3" if args.depth_model_version == "v3" else "Video-Depth-Anything (V2)"
         print(f"Starting Depth Surge 3D processing...")
         print(f"Input: {args.input_video}")
         print(f"Output: {args.output_dir} (batch subdirectory will be created)")
-        print(f"Model: Video-Depth-Anything (temporal consistency)")
+        print(f"Model: {model_name}")
         print(f"Format: {args.format}")
         print(f"Resolution: {args.vr_resolution}")
 
