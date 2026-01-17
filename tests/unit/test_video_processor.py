@@ -18,6 +18,13 @@ DEFAULT_TEST_SETTINGS = {
     "disparity_shift": 2.0,
     "video_encoder": "libx264",
     "keep_intermediates": True,
+    "baseline": 0.065,  # Required for stereo pair creation
+    "focal_length": 1000.0,  # Required for stereo pair creation
+    "hole_fill_quality": "none",  # Required for stereo pair creation
+    "fisheye_fov": 190.0,  # Required for distortion
+    "fisheye_projection": "equidistant",  # Required for distortion
+    "per_eye_width": 1920,  # Required for VR frame creation
+    "per_eye_height": 1080,  # Required for VR frame creation
 }
 
 
@@ -368,6 +375,7 @@ class TestStepGenerateDepthMaps:
         settings = get_test_settings()
         directories = {}
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 5.0
 
         with patch("cv2.imread", return_value=np.random.rand(480, 640, 3).astype(np.uint8)):
             result = processor._step_generate_depth_maps(
@@ -434,6 +442,7 @@ class TestStepLoadFrames:
         frame_files = [Path(f"/tmp/frame_{i:03d}.png") for i in range(5)]
         settings = get_test_settings()
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 2.0
 
         result = processor._step_load_frames(frame_files, settings, mock_tracker)
 
@@ -491,15 +500,14 @@ class TestStepCreateStereoPairs:
             "right_frames": mock_right_dir,
         }
 
-        settings = {"disparity_shift": 2.0, "vr_resolution": "1080p"}
+        settings = get_test_settings()
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 10.0
 
         mock_resize.side_effect = lambda x, *args: x
         mock_depth_disp.return_value = np.random.rand(480, 640)
-        mock_shift.side_effect = [
-            np.random.rand(480, 640, 3).astype(np.uint8),
-            np.random.rand(480, 640, 3).astype(np.uint8),
-        ]
+        # Need 6 returns: left+right for each of 3 frames
+        mock_shift.return_value = np.random.rand(480, 640, 3).astype(np.uint8)
 
         result = processor._step_create_stereo_pairs(
             frames, depth_maps, frame_files, directories, settings, mock_tracker
@@ -539,16 +547,25 @@ class TestStepApplyDistortion:
         ]
 
         mock_left_dist_dir = MagicMock(spec=Path)
+        mock_left_dist_dir.exists.return_value = False  # Prevent skipping
         mock_right_dist_dir = MagicMock(spec=Path)
+        mock_right_dist_dir.exists.return_value = False  # Prevent skipping
+
+        mock_left_frames_dir = MagicMock(spec=Path)
+        mock_left_frames_dir.glob.return_value = [Path("/tmp/left/frame_001.png")]
+        mock_right_frames_dir = MagicMock(spec=Path)
+        mock_right_frames_dir.glob.return_value = [Path("/tmp/right/frame_001.png")]
+
         directories = {
-            "left_frames": Path("/tmp/left"),
-            "right_frames": Path("/tmp/right"),
+            "left_frames": mock_left_frames_dir,
+            "right_frames": mock_right_frames_dir,
             "left_distorted": mock_left_dist_dir,
             "right_distorted": mock_right_dist_dir,
         }
 
         settings = get_test_settings(apply_distortion=True)
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 5.0
 
         result = processor._step_apply_distortion(directories, settings, mock_tracker)
 
@@ -596,14 +613,23 @@ class TestStepCreateVRFrames:
         mock_get_files.return_value = [Path("/tmp/frame_001.png")]
 
         mock_vr_dir = MagicMock(spec=Path)
+        mock_vr_dir.exists.return_value = False  # Prevent skipping
+
+        # Mock left/right directories to return frame files via .glob()
+        mock_left_dir = MagicMock(spec=Path)
+        mock_left_dir.glob.return_value = [Path("/tmp/left/frame_001.png")]
+        mock_right_dir = MagicMock(spec=Path)
+        mock_right_dir.glob.return_value = [Path("/tmp/right/frame_001.png")]
+
         directories = {
-            "left_frames": Path("/tmp/left"),
-            "right_frames": Path("/tmp/right"),
+            "left_frames": mock_left_dir,
+            "right_frames": mock_right_dir,
             "vr_frames": mock_vr_dir,
         }
 
-        settings = {"vr_format": "side_by_side"}
+        settings = get_test_settings()
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 10.0
 
         result = processor._step_create_vr_frames(directories, settings, mock_tracker, num_frames=1)
 
@@ -641,12 +667,9 @@ class TestStepCreateFinalVideo:
         mock_vr_dir.__truediv__.return_value = Path("/tmp/vr/frame_%03d.png")
         directories = {"vr_frames": mock_vr_dir}
 
-        settings = {
-            "vr_format": "side_by_side",
-            "vr_resolution": "1080p",
-            "video_encoder": "libx264",
-        }
+        settings = get_test_settings()
         mock_tracker = MagicMock()
+        mock_tracker.get_step_duration.return_value = 20.0
 
         result = processor._step_create_final_video(
             directories,
@@ -660,27 +683,27 @@ class TestStepCreateFinalVideo:
         assert result is True
         mock_subprocess.assert_called()
 
-    @patch("src.depth_surge_3d.processing.video_processor.get_frame_files")
-    def test_create_final_video_no_frames(self, mock_get_files):
-        """Test final video creation fails with no VR frames."""
+    @patch("subprocess.run")
+    def test_create_final_video_ffmpeg_failure(self, mock_subprocess):
+        """Test final video creation fails when FFmpeg returns error."""
         mock_estimator = MagicMock(spec=VideoDepthEstimator)
         processor = VideoProcessor(mock_estimator)
 
-        mock_get_files.return_value = []
+        # Simulate FFmpeg failure
+        mock_subprocess.return_value = MagicMock(returncode=1, stderr="FFmpeg error")
 
         directories = {"vr_frames": Path("/tmp/vr")}
         settings = get_test_settings()
         mock_tracker = MagicMock()
 
-        with patch.object(processor, "_handle_step_error") as mock_error:
-            result = processor._step_create_final_video(
-                directories,
-                Path("/tmp/output"),
-                "/tmp/input.mp4",
-                settings,
-                mock_tracker,
-                progress_callback=None,
-            )
+        result = processor._step_create_final_video(
+            directories,
+            Path("/tmp/output"),
+            "/tmp/input.mp4",
+            settings,
+            mock_tracker,
+            progress_callback=None,
+        )
 
         assert result is False
-        mock_error.assert_called_once()
+        mock_subprocess.assert_called_once()
