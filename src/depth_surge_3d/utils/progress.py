@@ -29,8 +29,9 @@ PROCESSING_PHASES = {
     "extraction": {"weight": 15, "description": "Extracting frames"},
     "super_sampling": {"weight": 10, "description": "Super sampling frames"},
     "depth_estimation": {"weight": 30, "description": "Estimating depth"},
-    "stereo_generation": {"weight": 25, "description": "Creating stereo pairs"},
+    "stereo_generation": {"weight": 20, "description": "Creating stereo pairs"},
     "distortion": {"weight": 10, "description": "Applying fisheye distortion"},
+    "upscaling": {"weight": 10, "description": "Upscaling frames"},
     "vr_assembly": {"weight": 5, "description": "Assembling VR frames"},
     "video_creation": {"weight": 5, "description": "Creating final video"},
 }

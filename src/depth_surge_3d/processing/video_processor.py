@@ -567,6 +567,94 @@ class VideoProcessor:
             print()
         return True
 
+    def _step_apply_upscaling(
+        self, directories: dict[str, Path], settings: dict[str, Any], progress_tracker
+    ) -> bool:
+        """Execute Step 5.5: Apply AI upscaling (if enabled)."""
+        upscale_model = settings.get("upscale_model", "none")
+
+        if upscale_model == "none":
+            print("Step 5.5/7: Skipping upscaling (disabled)\n")
+            return True
+
+        # Check if upscaled frames already exist (only if keep_intermediates is enabled)
+        if (
+            settings.get("keep_intermediates")
+            and "left_upscaled" in directories
+            and "right_upscaled" in directories
+        ):
+            left_upscaled_dir = directories["left_upscaled"]
+            right_upscaled_dir = directories["right_upscaled"]
+            if left_upscaled_dir.exists() and right_upscaled_dir.exists():
+                existing_left = sorted(list(left_upscaled_dir.glob("*.png")))
+                existing_right = sorted(list(right_upscaled_dir.glob("*.png")))
+
+                # Determine source directory to count frames
+                source_left, source_right = self._get_upscaling_source_dirs(directories, settings)
+                source_files = sorted(source_left.glob("*.png")) if source_left else []
+
+                if (
+                    existing_left
+                    and existing_right
+                    and len(existing_left) >= len(source_files)
+                    and len(existing_right) >= len(source_files)
+                ):
+                    print("Step 5.5/7: Skipping upscaling (upscaled frames already exist)")
+                    print(
+                        f"  Found {len(existing_left):04d} upscaled left and {len(existing_right):04d} upscaled right frames"
+                    )
+                    print(saved_to(f"  Location: {left_upscaled_dir} & {right_upscaled_dir}\n"))
+                    if progress_tracker:
+                        progress_tracker.update_progress(
+                            "Skipped upscaling (already exists)",
+                            phase="upscaling",
+                            frame_num=len(existing_left),
+                            step_name="AI Upscaling",
+                            step_progress=len(existing_left),
+                            step_total=len(existing_left),
+                        )
+                    return True
+
+        print(f"Step 5.5/7: Applying {upscale_model} upscaling...")
+
+        # Get source directories
+        source_left, source_right = self._get_upscaling_source_dirs(directories, settings)
+        if source_left is None or source_right is None:
+            self._handle_step_error("No source frames for upscaling")
+            return False
+
+        # Apply upscaling
+        success = self._apply_upscaling(
+            source_left, source_right, directories, settings, progress_tracker
+        )
+
+        if not success:
+            self._handle_step_error("Upscaling failed")
+            return False
+
+        # Get frame count for summary
+        left_files = sorted(source_left.glob("*.png"))
+
+        duration = (
+            progress_tracker.get_step_duration()
+            if hasattr(progress_tracker, "get_step_duration")
+            else 0
+        )
+        print(
+            step_complete(
+                f"Upscaled {len(left_files):04d} frames with {upscale_model} in {duration:.2f}s"
+            )
+        )
+        if settings["keep_intermediates"] and "left_upscaled" in directories:
+            print(
+                saved_to(
+                    f"Saved to: {directories['left_upscaled']} & {directories['right_upscaled']}\n"
+                )
+            )
+        else:
+            print()
+        return True
+
     def _step_create_vr_frames(
         self,
         directories: dict[str, Path],
@@ -711,6 +799,10 @@ class VideoProcessor:
 
             # Step 5: Apply fisheye distortion (if enabled)
             if not self._step_apply_distortion(directories, settings, progress_tracker):
+                return False
+
+            # Step 5.5: Apply AI upscaling (if enabled)
+            if not self._step_apply_upscaling(directories, settings, progress_tracker):
                 return False
 
             # Step 6: Create final VR frames
@@ -1239,11 +1331,147 @@ class VideoProcessor:
             print(f"Error applying distortion: {e}")
             return False
 
+    def _apply_upscaling(
+        self,
+        left_dir: Path,
+        right_dir: Path,
+        directories: dict[str, Path],
+        settings: dict[str, Any],
+        progress_tracker,
+    ) -> bool:
+        """Apply AI upscaling to left and right frames."""
+        try:
+            from ..models.upscaler import create_upscaler
+
+            # Create upscaler
+            upscaler = create_upscaler(
+                model_name=settings["upscale_model"],
+                device=settings.get("device", "auto"),
+            )
+
+            if upscaler is None:
+                return True  # No upscaling
+
+            if not upscaler.load_model():
+                print("Failed to load upscaling model")
+                return False
+
+            try:
+                return self._process_upscaling_frames(
+                    upscaler, left_dir, right_dir, directories, settings, progress_tracker
+                )
+            finally:
+                upscaler.unload_model()
+
+        except Exception as e:
+            print(f"Error applying upscaling: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def _process_upscaling_frames(
+        self, upscaler, left_dir, right_dir, directories, settings, progress_tracker
+    ) -> bool:
+        """Process individual frames through upscaler."""
+        left_files = sorted(list(left_dir.glob("*.png")))
+        right_files = sorted(list(right_dir.glob("*.png")))
+
+        if len(left_files) != len(right_files):
+            print(f"Frame count mismatch: {len(left_files)} left, {len(right_files)} right")
+            return False
+
+        # Create output directories
+        left_upscaled = directories.get("left_upscaled")
+        right_upscaled = directories.get("right_upscaled")
+
+        if left_upscaled:
+            left_upscaled.mkdir(exist_ok=True)
+        if right_upscaled:
+            right_upscaled.mkdir(exist_ok=True)
+
+        # Process frames
+        for i, (left_file, right_file) in enumerate(zip(left_files, right_files)):
+            self._upscale_frame_pair(
+                upscaler,
+                left_file,
+                right_file,
+                left_upscaled,
+                right_upscaled,
+                settings,
+                i,
+                len(left_files),
+                progress_tracker,
+            )
+
+        return True
+
+    def _upscale_frame_pair(
+        self,
+        upscaler,
+        left_file,
+        right_file,
+        left_upscaled,
+        right_upscaled,
+        settings,
+        frame_idx,
+        total_frames,
+        progress_tracker,
+    ):
+        """Upscale a single frame pair."""
+        left_img = cv2.imread(str(left_file))
+        right_img = cv2.imread(str(right_file))
+
+        if left_img is None or right_img is None:
+            print(f"Warning: Could not load {left_file} or {right_file}")
+            return
+
+        # Upscale
+        left_upscaled_img = upscaler.upscale_image(left_img)
+        right_upscaled_img = upscaler.upscale_image(right_img)
+
+        # Save if keeping intermediates
+        if settings["keep_intermediates"]:
+            frame_name = left_file.stem
+            if left_upscaled:
+                cv2.imwrite(str(left_upscaled / f"{frame_name}.png"), left_upscaled_img)
+            if right_upscaled:
+                cv2.imwrite(str(right_upscaled / f"{frame_name}.png"), right_upscaled_img)
+
+        # Progress update (every 5 frames or last frame)
+        if frame_idx % 5 == 0 or frame_idx == total_frames - 1:
+            progress_tracker.update_progress(
+                f"Upscaling frame {frame_idx+1}/{total_frames}",
+                phase="upscaling",
+                frame_num=frame_idx + 1,
+                step_name="AI Upscaling",
+                step_progress=frame_idx + 1,
+                step_total=total_frames,
+            )
+
+    def _get_upscaling_source_dirs(
+        self, directories: dict[str, Path], settings: dict[str, Any]
+    ) -> tuple[Path, Path] | None:
+        """Get source directories for upscaling based on pipeline state."""
+        if settings.get("apply_distortion") and "left_distorted" in directories:
+            return directories["left_distorted"], directories["right_distorted"]
+        elif "left_frames" in directories:
+            return directories["left_frames"], directories["right_frames"]
+        else:
+            return None, None
+
     def _get_stereo_source_dirs(
         self, directories: dict[str, Path], settings: dict[str, Any]
     ) -> tuple[Path, Path] | None:
-        """Determine source directories for stereo frames."""
-        if settings["apply_distortion"] and "left_distorted" in directories:
+        """Determine source directories for stereo frames (prioritizes upscaled frames)."""
+        # Priority: upscaled > distorted > original
+        if settings.get("upscale_model") != "none" and "left_upscaled" in directories:
+            left_upscaled = directories["left_upscaled"]
+            right_upscaled = directories["right_upscaled"]
+            if left_upscaled.exists() and right_upscaled.exists():
+                return left_upscaled, right_upscaled
+
+        if settings.get("apply_distortion") and "left_distorted" in directories:
             return directories["left_distorted"], directories["right_distorted"]
         elif "left_frames" in directories:
             return directories["left_frames"], directories["right_frames"]

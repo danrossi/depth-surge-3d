@@ -64,6 +64,7 @@ DEFAULT_SETTINGS = {
     "experimental_frame_interpolation": False,  # Experimental feature with quality warnings
     "temporal_window_size": DEPTH_MODEL_CHUNK_SIZE,  # V2 only: frames per temporal window
     "temporal_window_overlap": DEPTH_MODEL_CHUNK_OVERLAP,  # V2 only: frame overlap between windows
+    "upscale_model": "none",  # AI upscaling: none, x2, x4, x4-conservative
 }
 
 # VR resolution configurations (per eye)
@@ -249,6 +250,9 @@ MAX_FOV = 180  # degrees
 # Hole filling methods
 HOLE_FILL_METHODS = ["fast", "advanced", "high"]
 
+# AI upscaling models
+UPSCALE_MODELS = ["none", "x2", "x4", "x4-conservative"]
+
 # Directory names for intermediate files
 # Numbered to match processing steps: 00=input, 01-07=processing, 99=output
 # Optional steps (01, 05, 06) are skipped if not enabled
@@ -260,6 +264,8 @@ INTERMEDIATE_DIRS = {
     "right_frames": "04_right_frames",  # Step 4: Stereo pair - right eye
     "left_distorted": "05_left_distorted",  # Step 5: Fisheye distortion - left (optional)
     "right_distorted": "05_right_distorted",  # Step 5: Fisheye distortion - right (optional)
+    "left_upscaled": "05_5_left_upscaled",  # Step 5.5: AI upscaled - left (optional)
+    "right_upscaled": "05_5_right_upscaled",  # Step 5.5: AI upscaled - right (optional)
     "left_cropped": "06_left_cropped",  # Optional: Center cropped - left
     "right_cropped": "06_right_cropped",  # Optional: Center cropped - right
     "left_final": "07_left_final",  # Step 6: Final resized - left

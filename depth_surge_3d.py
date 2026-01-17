@@ -172,6 +172,12 @@ Note: Always uses Video-Depth-Anything for temporal consistency across frames.
         action="store_true",
         help="EXPERIMENTAL: Double FPS using motion interpolation. WARNING: May produce artifacts, wobbling, or poor quality. Recommended for artistic experimentation only.",
     )
+    parser.add_argument(
+        "--upscale-model",
+        choices=["none", "x2", "x4", "x4-conservative"],
+        default="none",
+        help="AI upscaling model (Real-ESRGAN). Options: none (disabled, default), x2 (2x fast), x4 (4x best quality), x4-conservative (4x without GAN artifacts). Significantly increases processing time (+2-3x) and VRAM usage (+2-4GB).",
+    )
 
     # Information and debugging
     parser.add_argument(
