@@ -201,3 +201,101 @@ class TestCreateOutputDirectories:
         assert "frames" in result
         assert "depth_maps" in result
         assert "vr_frames" in result
+
+
+class TestValidateVideoFile:
+    """Test validate_video_file function."""
+
+    def test_validate_video_file_valid_mp4(self):
+        """Test validation of valid MP4 file."""
+        from src.depth_surge_3d.processing.io_operations import validate_video_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_video_file("test.mp4")
+
+        assert result is True
+
+    def test_validate_video_file_valid_mkv(self):
+        """Test validation of valid MKV file."""
+        from src.depth_surge_3d.processing.io_operations import validate_video_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_video_file("test.mkv")
+
+        assert result is True
+
+    def test_validate_video_file_invalid_extension(self):
+        """Test validation of file with invalid extension."""
+        from src.depth_surge_3d.processing.io_operations import validate_video_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_video_file("test.txt")
+
+        assert result is False
+
+    def test_validate_video_file_nonexistent_file(self):
+        """Test validation of non-existent file."""
+        from src.depth_surge_3d.processing.io_operations import validate_video_file
+
+        with patch("os.path.exists", return_value=False):
+            result = validate_video_file("nonexistent.mp4")
+
+        assert result is False
+
+    def test_validate_video_file_case_insensitive(self):
+        """Test validation is case insensitive for extensions."""
+        from src.depth_surge_3d.processing.io_operations import validate_video_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_video_file("test.MP4")
+
+        assert result is True
+
+
+class TestValidateImageFile:
+    """Test validate_image_file function."""
+
+    def test_validate_image_file_valid_png(self):
+        """Test validation of valid PNG file."""
+        from src.depth_surge_3d.processing.io_operations import validate_image_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_image_file("test.png")
+
+        assert result is True
+
+    def test_validate_image_file_valid_jpg(self):
+        """Test validation of valid JPG file."""
+        from src.depth_surge_3d.processing.io_operations import validate_image_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_image_file("test.jpg")
+
+        assert result is True
+
+    def test_validate_image_file_invalid_extension(self):
+        """Test validation of file with invalid extension."""
+        from src.depth_surge_3d.processing.io_operations import validate_image_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_image_file("test.mp4")
+
+        assert result is False
+
+    def test_validate_image_file_nonexistent_file(self):
+        """Test validation of non-existent file."""
+        from src.depth_surge_3d.processing.io_operations import validate_image_file
+
+        with patch("os.path.exists", return_value=False):
+            result = validate_image_file("nonexistent.png")
+
+        assert result is False
+
+    def test_validate_image_file_case_insensitive(self):
+        """Test validation is case insensitive for extensions."""
+        from src.depth_surge_3d.processing.io_operations import validate_image_file
+
+        with patch("os.path.exists", return_value=True):
+            result = validate_image_file("test.PNG")
+
+        assert result is True
