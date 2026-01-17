@@ -529,6 +529,131 @@ class TestProcessVideoSerial:
         # Should not process frame that already exists
         mock_cv2.imread.assert_not_called()
 
+    @patch("src.depth_surge_3d.utils.video_processing._create_intermediate_directories")
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    @patch("src.depth_surge_3d.utils.video_processing._process_single_frame_complete")
+    def test_process_video_serial_none_image(self, mock_process, mock_get_cv2, mock_create_dirs):
+        """Test serial processing handles None image (imread failure)."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        # imread returns None (file read failure)
+        mock_cv2.imread.return_value = None
+
+        mock_projector = MagicMock()
+        mock_callback = MagicMock()
+
+        mock_frame = MagicMock(spec=Path)
+        mock_frame.stem = "frame_001"
+        frame_files = [mock_frame]
+        output_path = Path("/tmp/output")
+
+        mock_vr_dir = MagicMock(spec=Path)
+        mock_vr_frame = MagicMock(spec=Path)
+        mock_vr_frame.exists.return_value = False
+        mock_vr_dir.__truediv__.return_value = mock_vr_frame
+
+        directories = {"vr_frames": mock_vr_dir}
+        mock_create_dirs.return_value = directories
+
+        result = process_video_serial(mock_projector, mock_callback, frame_files, output_path)
+
+        assert result is True
+        # Should not process frame with None image
+        mock_process.assert_not_called()
+
+    @patch("src.depth_surge_3d.utils.video_processing._create_intermediate_directories")
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    @patch("src.depth_surge_3d.utils.video_processing._process_single_frame_complete")
+    def test_process_video_serial_exception_handling(
+        self, mock_process, mock_get_cv2, mock_create_dirs
+    ):
+        """Test serial processing handles exceptions gracefully."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_image = np.random.rand(480, 640, 3).astype(np.uint8)
+        mock_cv2.imread.return_value = mock_image
+
+        # Simulate exception during processing
+        mock_process.side_effect = RuntimeError("Processing failed")
+
+        mock_projector = MagicMock()
+        mock_callback = MagicMock()
+
+        mock_frame = MagicMock(spec=Path)
+        mock_frame.stem = "frame_001"
+        frame_files = [mock_frame]
+        output_path = Path("/tmp/output")
+
+        mock_vr_dir = MagicMock(spec=Path)
+        mock_vr_frame = MagicMock(spec=Path)
+        mock_vr_frame.exists.return_value = False
+        mock_vr_dir.__truediv__.return_value = mock_vr_frame
+
+        directories = {"vr_frames": mock_vr_dir}
+        mock_create_dirs.return_value = directories
+
+        # Should handle exception and continue
+        result = process_video_serial(mock_projector, mock_callback, frame_files, output_path)
+
+        assert result is True
+
+    @patch("src.depth_surge_3d.utils.video_processing._create_intermediate_directories")
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    @patch("src.depth_surge_3d.utils.video_processing._process_single_frame_complete")
+    def test_process_video_serial_with_super_sampling(
+        self, mock_process, mock_get_cv2, mock_create_dirs
+    ):
+        """Test serial processing with super sampling enabled."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_image = np.random.rand(480, 640, 3).astype(np.uint8)
+        mock_cv2.imread.return_value = mock_image
+
+        # Mock imwrite
+        mock_cv2.imwrite.return_value = True
+
+        mock_projector = MagicMock()
+        # Return different sized image for super sampling
+        mock_projector.apply_super_sampling.return_value = np.random.rand(1080, 1920, 3).astype(
+            np.uint8
+        )
+
+        mock_callback = MagicMock()
+
+        mock_frame = MagicMock(spec=Path)
+        mock_frame.stem = "frame_001"
+        frame_files = [mock_frame]
+        output_path = Path("/tmp/output")
+
+        mock_vr_dir = MagicMock(spec=Path)
+        mock_vr_frame = MagicMock(spec=Path)
+        mock_vr_frame.exists.return_value = False
+        mock_vr_dir.__truediv__.return_value = mock_vr_frame
+
+        mock_ss_dir = MagicMock(spec=Path)
+        directories = {"vr_frames": mock_vr_dir, "supersampled": mock_ss_dir}
+        mock_create_dirs.return_value = directories
+
+        # Enable super sampling
+        result = process_video_serial(
+            mock_projector,
+            mock_callback,
+            frame_files,
+            output_path,
+            super_sample_width=1920,
+            super_sample_height=1080,
+        )
+
+        assert result is True
+        # Should call _process_single_frame_complete with super sampling dimensions
+        mock_process.assert_called_once()
+        call_kwargs = mock_process.call_args[1]
+        assert call_kwargs["super_sample_width"] == 1920
+        assert call_kwargs["super_sample_height"] == 1080
+
 
 class TestProcessVideoBatch:
     """Test process_video_batch function."""
@@ -607,3 +732,331 @@ class TestProcessVideoBatch:
         assert result is True
         # Should include fisheye phase
         mock_fisheye.assert_called_once()
+
+    @patch("src.depth_surge_3d.utils.video_processing._create_intermediate_directories")
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    @patch("src.depth_surge_3d.utils.video_processing._process_supersample_frame")
+    @patch("src.depth_surge_3d.utils.video_processing._process_depth_frame")
+    @patch("src.depth_surge_3d.utils.video_processing._process_stereo_frame")
+    @patch("src.depth_surge_3d.utils.video_processing._process_fisheye_frame")
+    @patch("src.depth_surge_3d.utils.video_processing._process_vr_assembly_frame")
+    def test_process_video_batch_with_super_sampling(
+        self,
+        mock_vr_assembly,
+        mock_fisheye,
+        mock_stereo,
+        mock_depth,
+        mock_supersample,
+        mock_get_cv2,
+        mock_create_dirs,
+    ):
+        """Test batch processing with super sampling."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_projector = MagicMock()
+        mock_callback = MagicMock()
+
+        mock_frame = MagicMock(spec=Path)
+        frame_files = [mock_frame]
+        output_path = Path("/tmp/output")
+
+        directories = {
+            "vr_frames": Path("/tmp/vr"),
+            "left_frames": Path("/tmp/left"),
+            "right_frames": Path("/tmp/right"),
+            "supersampled_frames": Path("/tmp/ss"),
+        }
+        mock_create_dirs.return_value = directories
+
+        # Set super_sample dimensions different from defaults
+        result = process_video_batch(
+            mock_projector,
+            mock_callback,
+            frame_files,
+            output_path,
+            super_sample_width=3840,
+            super_sample_height=2160,
+        )
+
+        assert result is True
+        # Should include super sampling phase
+        mock_supersample.assert_called_once()
+
+
+class TestProcessSingleFrameCompleteEdgeCases:
+    """Test _process_single_frame_complete edge cases."""
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_single_frame_save_intermediates(self, mock_get_cv2):
+        """Test saving intermediate outputs."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_projector = MagicMock()
+        mock_callback = MagicMock()
+
+        mock_image = np.random.rand(1080, 1920, 3).astype(np.uint8)
+
+        # Mock directories for all intermediate outputs
+        directories = {
+            "supersampled": Path("/tmp/supersampled"),
+            "depth_maps": Path("/tmp/depth"),
+            "left_frames": Path("/tmp/left"),
+            "right_frames": Path("/tmp/right"),
+            "left_distorted": Path("/tmp/left_dist"),
+            "right_distorted": Path("/tmp/right_dist"),
+        }
+
+        mock_depth = np.random.rand(1080, 1920).astype(np.float32)
+        mock_projector.generate_depth_map_from_array.return_value = mock_depth
+
+        mock_left = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_right = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_projector.create_stereo_pair_from_depth.return_value = (mock_left, mock_right)
+        mock_projector.apply_fisheye_distortion.side_effect = [mock_left, mock_right]
+        mock_projector.create_vr_format.return_value = np.random.rand(1080, 3840, 3).astype(
+            np.uint8
+        )
+
+        result = _process_single_frame_complete(
+            mock_projector,
+            mock_callback,
+            mock_image,
+            0,
+            10,
+            directories,
+            "frame_001",
+            1920,
+            1080,
+            apply_distortion=True,
+        )
+
+        assert result is not None
+        # Should save all intermediates
+        assert mock_cv2.imwrite.call_count >= 4
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_single_frame_with_super_sampling(self, mock_get_cv2):
+        """Test super sampling with intermediate save."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_projector = MagicMock()
+        mock_callback = MagicMock()
+
+        # Original image is smaller than target super sample dimensions
+        mock_image = np.random.rand(720, 1280, 3).astype(np.uint8)
+
+        # Mock super sampling result
+        mock_ss_image = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_projector.apply_super_sampling.return_value = mock_ss_image
+
+        # Mock directories including supersampled
+        directories = {
+            "supersampled": Path("/tmp/supersampled"),
+            "depth_maps": Path("/tmp/depth"),
+            "left_frames": Path("/tmp/left"),
+            "right_frames": Path("/tmp/right"),
+        }
+
+        mock_depth = np.random.rand(1080, 1920).astype(np.float32)
+        mock_projector.generate_depth_map_from_array.return_value = mock_depth
+
+        mock_left = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_right = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_projector.create_stereo_pair_from_depth.return_value = (mock_left, mock_right)
+        mock_projector.create_vr_format.return_value = np.random.rand(1080, 3840, 3).astype(
+            np.uint8
+        )
+
+        # Enable super sampling with different dimensions
+        result = _process_single_frame_complete(
+            mock_projector,
+            mock_callback,
+            mock_image,
+            0,
+            10,
+            directories,
+            "frame_001",
+            super_sample_width=1920,
+            super_sample_height=1080,
+            apply_distortion=False,
+        )
+
+        assert result is not None
+        # Should call super sampling
+        mock_projector.apply_super_sampling.assert_called_once_with(mock_image, 1920, 1080)
+        # Should save supersampled intermediate
+        assert mock_cv2.imwrite.call_count >= 1
+
+
+class TestProcessDepthFrameEdgeCases:
+    """Test _process_depth_frame edge cases."""
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_depth_frame_none_image(self, mock_get_cv2):
+        """Test depth processing with None image."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+        mock_cv2.imread.return_value = None
+
+        mock_projector = MagicMock()
+        mock_frame_file = MagicMock(spec=Path)
+        mock_frame_file.stem = "frame_001"
+
+        directories = {"depth_maps": Path("/tmp/depth")}
+
+        # Should return early without error
+        _process_depth_frame(mock_projector, mock_frame_file, directories)
+
+        mock_projector.generate_depth_map_from_array.assert_not_called()
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_depth_frame_with_supersampled_missing(self, mock_get_cv2):
+        """Test depth processing when supersampled file doesn't exist."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_image = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_cv2.imread.return_value = mock_image
+
+        mock_projector = MagicMock()
+        mock_depth = np.random.rand(1080, 1920).astype(np.float32)
+        mock_projector.generate_depth_map_from_array.return_value = mock_depth
+
+        mock_frame_file = MagicMock(spec=Path)
+        mock_frame_file.stem = "frame_001"
+
+        mock_ss_path = MagicMock(spec=Path)
+        mock_ss_path.exists.return_value = False
+        mock_ss_dir = MagicMock(spec=Path)
+        mock_ss_dir.__truediv__.return_value = mock_ss_path
+
+        directories = {"depth_maps": Path("/tmp/depth"), "supersampled": mock_ss_dir}
+
+        # Should load from original frame when supersampled doesn't exist
+        _process_depth_frame(mock_projector, mock_frame_file, directories)
+
+        mock_projector.generate_depth_map_from_array.assert_called_once()
+
+
+class TestProcessStereoFrameEdgeCases:
+    """Test _process_stereo_frame edge cases."""
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_stereo_frame_none_image(self, mock_get_cv2):
+        """Test stereo processing with None image."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+        mock_cv2.imread.return_value = None
+
+        mock_projector = MagicMock()
+        mock_frame_file = MagicMock(spec=Path)
+
+        mock_depth_dir = MagicMock(spec=Path)
+        directories = {"depth_maps": mock_depth_dir}
+
+        # Should return early without error
+        _process_stereo_frame(mock_projector, mock_frame_file, directories)
+
+        mock_projector.create_stereo_pair_from_depth.assert_not_called()
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_stereo_frame_with_supersampled_exists(self, mock_get_cv2):
+        """Test stereo processing when supersampled file exists."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_image = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_depth = np.random.rand(1080, 1920).astype(np.float32)
+        mock_cv2.imread.side_effect = [mock_image, mock_depth]
+
+        mock_projector = MagicMock()
+        mock_left = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_right = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_projector.create_stereo_pair_from_depth.return_value = (mock_left, mock_right)
+
+        mock_frame_file = MagicMock(spec=Path)
+        mock_frame_file.stem = "frame_001"
+
+        mock_ss_path = MagicMock(spec=Path)
+        mock_ss_path.exists.return_value = True
+        mock_ss_dir = MagicMock(spec=Path)
+        mock_ss_dir.__truediv__.return_value = mock_ss_path
+
+        mock_depth_dir = MagicMock(spec=Path)
+
+        directories = {
+            "depth_maps": mock_depth_dir,
+            "left_frames": Path("/tmp/left"),
+            "right_frames": Path("/tmp/right"),
+            "supersampled": mock_ss_dir,
+        }
+
+        # Should load from supersampled when it exists
+        _process_stereo_frame(mock_projector, mock_frame_file, directories)
+
+        mock_projector.create_stereo_pair_from_depth.assert_called_once()
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_stereo_frame_with_supersampled_missing(self, mock_get_cv2):
+        """Test stereo processing when supersampled file doesn't exist."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+
+        mock_image = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_depth = np.random.rand(1080, 1920).astype(np.float32)
+        mock_cv2.imread.side_effect = [mock_image, mock_depth]
+
+        mock_projector = MagicMock()
+        mock_left = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_right = np.random.rand(1080, 1920, 3).astype(np.uint8)
+        mock_projector.create_stereo_pair_from_depth.return_value = (mock_left, mock_right)
+
+        mock_frame_file = MagicMock(spec=Path)
+        mock_frame_file.stem = "frame_001"
+
+        mock_ss_path = MagicMock(spec=Path)
+        mock_ss_path.exists.return_value = False
+        mock_ss_dir = MagicMock(spec=Path)
+        mock_ss_dir.__truediv__.return_value = mock_ss_path
+
+        mock_depth_dir = MagicMock(spec=Path)
+
+        directories = {
+            "depth_maps": mock_depth_dir,
+            "left_frames": Path("/tmp/left"),
+            "right_frames": Path("/tmp/right"),
+            "supersampled": mock_ss_dir,
+        }
+
+        # Should load from original when supersampled doesn't exist
+        _process_stereo_frame(mock_projector, mock_frame_file, directories)
+
+        mock_projector.create_stereo_pair_from_depth.assert_called_once()
+
+
+class TestProcessVRAssemblyEdgeCases:
+    """Test _process_vr_assembly_frame edge cases."""
+
+    @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
+    def test_process_vr_assembly_none_images(self, mock_get_cv2):
+        """Test VR assembly with None images."""
+        mock_cv2 = MagicMock()
+        mock_get_cv2.return_value = mock_cv2
+        mock_cv2.imread.side_effect = [None, np.random.rand(1080, 1920, 3).astype(np.uint8)]
+
+        mock_projector = MagicMock()
+        mock_frame_file = MagicMock(spec=Path)
+
+        mock_left_dir = MagicMock(spec=Path)
+        mock_right_dir = MagicMock(spec=Path)
+        directories = {"left_frames": mock_left_dir, "right_frames": mock_right_dir}
+
+        # Should return early without error
+        _process_vr_assembly_frame(
+            mock_projector, mock_frame_file, directories, apply_distortion=False
+        )
+
+        mock_projector.create_vr_format.assert_not_called()

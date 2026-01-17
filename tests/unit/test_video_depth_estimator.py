@@ -1,6 +1,7 @@
 """Unit tests for VideoDepthEstimator (V2)."""
 
 import numpy as np
+import pytest
 from unittest.mock import patch, MagicMock
 
 from src.depth_surge_3d.models.video_depth_estimator import (
@@ -40,6 +41,16 @@ class TestVideoDepthEstimator:
         with patch("torch.cuda.is_available", return_value=False):
             estimator = VideoDepthEstimator(DEFAULT_MODEL_PATH, device="auto")
             assert estimator.device in ["cpu", "mps"]
+
+    def test_determine_device_auto_mps(self):
+        """Test device determination when MPS is available (macOS)."""
+        with patch("torch.cuda.is_available", return_value=False):
+            # Mock MPS availability
+            mock_mps = MagicMock()
+            mock_mps.is_available.return_value = True
+            with patch("torch.backends.mps", mock_mps, create=True):
+                estimator = VideoDepthEstimator(DEFAULT_MODEL_PATH, device="auto")
+                assert estimator.device == "mps"
 
     def test_get_model_type_from_path(self):
         """Test model type detection from path."""
@@ -191,7 +202,17 @@ class TestEnsureDependencies:
             result = estimator._ensure_dependencies()
 
             # Should return False when repo missing
-            assert result is False
+
+    def test_ensure_dependencies_model_not_found_auto_download_fails(self):
+        """Test when model file doesn't exist and auto-download fails."""
+        estimator = VideoDepthEstimator(DEFAULT_MODEL_PATH, device="cpu")
+
+        # Mock os.path.exists to return False for model file
+        with patch("os.path.exists", return_value=False):
+            with patch.object(estimator, "_auto_download_model", return_value=False):
+                result = estimator._ensure_dependencies()
+
+                assert result is False
 
 
 class TestSuppressModelOutput:
@@ -278,6 +299,18 @@ class TestAutoDownloadModel:
 
                 # Should return False when no URL available
                 assert result is False
+
+    def test_auto_download_model_download_exception(self):
+        """Test auto download when download fails with exception."""
+        estimator = VideoDepthEstimator(DEFAULT_MODEL_PATH, device="cpu")
+
+        with patch("pathlib.Path.exists", return_value=False):
+            with patch.object(estimator, "_get_model_type", return_value="vitl"):
+                # Mock urllib.request.urlretrieve to raise an exception
+                with patch("urllib.request.urlretrieve", side_effect=Exception("Network error")):
+                    result = estimator._auto_download_model()
+
+                    assert result is False
 
 
 class TestGetModelInfo:
@@ -473,6 +506,27 @@ class TestEstimateDepthChunked:
             result = estimator._estimate_depth_chunked(frames, 30, 518, False)
 
         assert result.shape == (30, 480, 640)
+
+    @patch("torch.cuda.is_available", return_value=True)
+    @patch("torch.cuda.empty_cache")
+    def test_estimate_depth_chunked_non_oom_error_reraise(self, mock_cache, mock_cuda):
+        """Test chunked processing re-raises non-OOM errors."""
+        import numpy as np
+
+        estimator = VideoDepthEstimator(DEFAULT_MODEL_PATH, device="cuda")
+        estimator.model = MagicMock()
+
+        # Raise a non-OOM error
+        def mock_process_chunk(frames_rgb, fps, size, fp32):
+            raise ValueError("Some other error")
+
+        estimator._process_depth_chunk = mock_process_chunk
+
+        frames = np.random.rand(30, 480, 640, 3).astype(np.uint8)
+
+        with patch("src.depth_surge_3d.core.constants.DEPTH_MODEL_CHUNK_SIZE", 24):
+            with pytest.raises(ValueError, match="Some other error"):
+                estimator._estimate_depth_chunked(frames, 30, 518, False)
 
 
 class TestProcessDepthChunk:
