@@ -603,3 +603,75 @@ class TestModelDelegation:
 
         assert projector._model_loaded is False
         mock_estimator.unload_model.assert_called_once()
+
+
+class TestProcessVideoErrorPaths:
+    """Test error handling in process_video method."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    def test_process_video_invalid_input(self, mock_validate, mock_create):
+        """Test process_video with invalid video input."""
+        mock_create.return_value = MagicMock()
+        mock_validate.return_value = False
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_video("invalid.txt", "/tmp/output")
+
+        assert result is False
+        mock_validate.assert_called_once_with("invalid.txt")
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    def test_process_video_model_load_failure(self, mock_validate, mock_create):
+        """Test process_video when model fails to load."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = False
+        mock_create.return_value = mock_estimator
+        mock_validate.return_value = True
+
+        projector = StereoProjector(device="cpu")
+
+        with patch("pathlib.Path.mkdir"):
+            result = projector.process_video("test.mp4", "/tmp/output")
+
+        assert result is False
+        mock_estimator.load_model.assert_called_once()
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    @patch("src.depth_surge_3d.core.stereo_projector.get_video_properties")
+    def test_process_video_invalid_video_properties(
+        self, mock_get_props, mock_validate, mock_create
+    ):
+        """Test process_video when video properties cannot be read."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_create.return_value = mock_estimator
+        mock_validate.return_value = True
+        mock_get_props.return_value = None
+
+        projector = StereoProjector(device="cpu")
+
+        with patch("pathlib.Path.mkdir"):
+            result = projector.process_video("test.mp4", "/tmp/output")
+
+        assert result is False
+        mock_get_props.assert_called_once_with("test.mp4")
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    @patch("src.depth_surge_3d.core.stereo_projector.get_video_properties")
+    def test_process_video_exception_handling(self, mock_get_props, mock_validate, mock_create):
+        """Test process_video handles exceptions gracefully."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.side_effect = RuntimeError("Model error")
+        mock_create.return_value = mock_estimator
+        mock_validate.return_value = True
+
+        projector = StereoProjector(device="cpu")
+
+        with patch("pathlib.Path.mkdir"):
+            result = projector.process_video("test.mp4", "/tmp/output")
+
+        assert result is False
