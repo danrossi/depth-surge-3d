@@ -184,8 +184,6 @@ class TestDetectHighestStageWithFrames:
 
     def test_detect_highest_stage_with_frames(self):
         """Test detecting highest stage when frames exist."""
-        import numpy as np
-
         mock_batch_path = MagicMock(spec=Path)
 
         # Mock VR frames directory with 100 frames
