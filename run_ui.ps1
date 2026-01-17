@@ -23,7 +23,7 @@ Write-Host "Checking dependencies..."
 python -m pip install flask flask-socketio *>$null
 
 # Install optional AI upscaling dependency if not present (quietly)
-python -m pip install py-real-esrgan *>$null
+python -m pip install realesrgan *>$null
 
 # Create upload and output directories
 New-Item -ItemType Directory -Force -Path "uploads" | Out-Null

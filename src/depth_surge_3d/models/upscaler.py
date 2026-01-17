@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Literal
 import torch
 import numpy as np
-from PIL import Image
 
 UpscaleModel = Literal["none", "x2", "x4", "x4-conservative"]
 
@@ -84,27 +83,50 @@ class RealESRGANUpscaler(ImageUpscaler):
     def load_model(self) -> bool:
         """Load Real-ESRGAN model."""
         try:
-            from py_real_esrgan.model import RealESRGAN
+            from realesrgan import RealESRGANer
+            from basicsr.archs.rrdbnet_arch import RRDBNet
 
-            # Map model names to weights
-            weights_map = {
-                "x2": "weights/RealESRGAN_x2plus.pth",
-                "x4": "weights/RealESRGAN_x4plus.pth",
-                "x4-conservative": "weights/RealESRNet_x4plus.pth",
-            }
+            # Map model names to parameters
+            if self.model_name == "x2":
+                model = RRDBNet(
+                    num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2
+                )
+                netscale = 2
+                model_path = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth"
+            elif self.model_name == "x4-conservative":
+                model = RRDBNet(
+                    num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4
+                )
+                netscale = 4
+                model_path = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.1/RealESRNet_x4plus.pth"
+            else:  # x4 default
+                model = RRDBNet(
+                    num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4
+                )
+                netscale = 4
+                model_path = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
 
-            weights_path = weights_map.get(self.model_name, weights_map["x4"])
+            # Determine device string for RealESRGANer
+            device_str = "cuda" if self.device == "cuda" and torch.cuda.is_available() else "cpu"
 
-            # Create model and load weights (auto-downloads if missing)
-            self.model = RealESRGAN(self.device, scale=self.scale)
-            self.model.load_weights(weights_path, download=True)
+            # Create upsampler
+            self.model = RealESRGANer(
+                scale=netscale,
+                model_path=model_path,
+                model=model,
+                tile=0,  # No tiling (process full image)
+                tile_pad=10,
+                pre_pad=0,
+                half=True if device_str == "cuda" else False,  # FP16 on GPU
+                device=device_str,
+            )
 
-            print(f"Loaded Real-ESRGAN ({self.model_name}) on {self.device}")
+            print(f"Loaded Real-ESRGAN ({self.model_name}) on {device_str}")
             return True
 
         except Exception as e:
             print(f"Error loading Real-ESRGAN: {e}")
-            print("Ensure py-real-esrgan is installed: pip install py-real-esrgan")
+            print("Ensure realesrgan is installed: pip install realesrgan")
             return False
 
     def upscale_image(self, image: np.ndarray) -> np.ndarray:
@@ -120,18 +142,10 @@ class RealESRGANUpscaler(ImageUpscaler):
         if self.model is None:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
-        # Convert BGR to RGB, numpy to PIL
-        image_rgb = image[..., ::-1]  # BGR to RGB
-        pil_image = Image.fromarray(image_rgb)
+        # RealESRGANer.enhance expects BGR and returns BGR, face_enhance=False
+        output, _ = self.model.enhance(image, outscale=self.scale)
 
-        # Upscale
-        upscaled_pil = self.model.predict(pil_image)
-
-        # Convert back to BGR numpy
-        upscaled_rgb = np.array(upscaled_pil)
-        upscaled_bgr = upscaled_rgb[..., ::-1]  # RGB to BGR
-
-        return upscaled_bgr
+        return output
 
 
 def create_upscaler(model_name: str = "none", device: str = "auto") -> ImageUpscaler | None:
