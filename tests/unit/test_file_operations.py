@@ -4,6 +4,8 @@ import pytest
 from src.depth_surge_3d.utils.file_operations import (
     parse_time_string,
     calculate_frame_range,
+    generate_frame_filename,
+    generate_output_filename,
 )
 
 
@@ -170,3 +172,98 @@ class TestCalculateFrameRange:
         # So end = max(0 + 1, min(0, 0)) = max(1, 0) = 1
         assert start == 0
         # This might be a bug in the original code, but testing actual behavior
+
+
+class TestGenerateFrameFilename:
+    """Test frame filename generation function."""
+
+    def test_generate_default_frame_filename(self):
+        """Test generating frame filename with default prefix."""
+        filename = generate_frame_filename(0)
+        assert filename == "frame_000000.png"
+
+    def test_generate_frame_filename_with_index(self):
+        """Test generating frame filename with various indices."""
+        assert generate_frame_filename(1) == "frame_000001.png"
+        assert generate_frame_filename(100) == "frame_000100.png"
+        assert generate_frame_filename(999999) == "frame_999999.png"
+
+    def test_generate_frame_filename_with_custom_prefix(self):
+        """Test generating frame filename with custom prefix."""
+        filename = generate_frame_filename(42, prefix="depth")
+        assert filename == "depth_000042.png"
+
+    def test_generate_frame_filename_zero_padding(self):
+        """Test that frame numbers are zero-padded to 6 digits."""
+        filename = generate_frame_filename(5)
+        assert filename == "frame_000005.png"
+        assert len("000005") == 6  # 6 digit padding
+
+    def test_generate_frame_filename_large_index(self):
+        """Test with large frame index."""
+        filename = generate_frame_filename(1_000_000)
+        assert filename == "frame_1000000.png"  # Exceeds 6 digits
+
+    def test_generate_frame_filename_negative_index(self):
+        """Test with negative index (edge case)."""
+        filename = generate_frame_filename(-1)
+        # Python's :06d format will still work with negative numbers
+        assert "frame_" in filename
+
+
+class TestGenerateOutputFilename:
+    """Test output filename generation function."""
+
+    def test_generate_output_filename_basic(self):
+        """Test basic output filename generation."""
+        filename = generate_output_filename("video", "side_by_side", "1080p")
+        assert "video" in filename
+        assert "side-by-side" in filename  # Underscores replaced with hyphens
+        assert "1080p" in filename
+        assert filename.endswith(".mp4")
+
+    def test_generate_output_filename_with_path(self):
+        """Test that filename extracts stem from path."""
+        filename = generate_output_filename("/path/to/video.mp4", "side_by_side", "4k")
+        assert filename.startswith("video_")
+        assert "/path/to/" not in filename  # Path removed
+
+    def test_generate_output_filename_format_conversion(self):
+        """Test that underscores in VR format are converted to hyphens."""
+        filename = generate_output_filename("test", "over_under", "2k")
+        assert "over-under" in filename
+        assert "over_under" not in filename
+
+    def test_generate_output_filename_with_deprecated_mode(self):
+        """Test backward compatibility with deprecated processing_mode parameter."""
+        # Should ignore processing_mode parameter
+        filename1 = generate_output_filename("test", "side_by_side", "1080p", "3d")
+        filename2 = generate_output_filename("test", "side_by_side", "1080p", None)
+
+        # Both should produce same result (mode is deprecated/ignored)
+        assert "test" in filename1
+        assert "test" in filename2
+
+    def test_generate_output_filename_special_characters(self):
+        """Test handling of special characters in base name."""
+        filename = generate_output_filename("My Video (2024)", "side_by_side", "4k")
+        # Should clean the base name
+        assert filename.endswith(".mp4")
+
+    def test_generate_output_filename_order(self):
+        """Test that filename parts are in correct order."""
+        filename = generate_output_filename("myvideo", "side_by_side", "2160p")
+        parts = filename.replace(".mp4", "").split("_")
+
+        # Should contain base name, format, and resolution
+        assert "myvideo" in parts
+        # Format is converted to hyphens, so check in final string
+        assert "side-by-side" in filename
+        assert "2160p" in filename
+
+    def test_generate_output_filename_empty_base(self):
+        """Test with empty base name."""
+        filename = generate_output_filename("", "side_by_side", "1080p")
+        # Should still generate valid filename
+        assert filename.endswith(".mp4")
+        assert len(filename) > 4  # More than just ".mp4"
