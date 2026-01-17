@@ -1,7 +1,7 @@
 """Unit tests for io_operations.py pure helper functions."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 from src.depth_surge_3d.processing.io_operations import (
     _should_keep_file,
     _remove_file_safe,
@@ -192,7 +192,7 @@ class TestCreateOutputDirectories:
         """Test creating output directories with default keep_intermediates."""
         base_path = Path("/tmp/output")
 
-        with patch("pathlib.Path.mkdir") as mock_mkdir:
+        with patch("pathlib.Path.mkdir"):
             # Default should be True
             result = create_output_directories(base_path)
 

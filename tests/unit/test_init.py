@@ -1,6 +1,5 @@
 """Unit tests for package __init__.py"""
 
-import sys
 from unittest.mock import patch, MagicMock
 
 
