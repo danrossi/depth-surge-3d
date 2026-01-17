@@ -299,3 +299,123 @@ class TestValidateImageFile:
             result = validate_image_file("test.PNG")
 
         assert result is True
+
+
+class TestVerifyFFmpegInstallation:
+    """Test verify_ffmpeg_installation function."""
+
+    def test_verify_ffmpeg_installation_success(self):
+        """Test FFmpeg verification when installed."""
+        from src.depth_surge_3d.processing.io_operations import verify_ffmpeg_installation
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = verify_ffmpeg_installation()
+
+        assert result is True
+
+    def test_verify_ffmpeg_installation_not_found(self):
+        """Test FFmpeg verification when not installed."""
+        from src.depth_surge_3d.processing.io_operations import verify_ffmpeg_installation
+
+        with patch("subprocess.run", side_effect=FileNotFoundError()):
+            result = verify_ffmpeg_installation()
+
+        assert result is False
+
+    def test_verify_ffmpeg_installation_subprocess_error(self):
+        """Test FFmpeg verification with subprocess error."""
+        from src.depth_surge_3d.processing.io_operations import verify_ffmpeg_installation
+        import subprocess
+
+        with patch("subprocess.run", side_effect=subprocess.SubprocessError()):
+            result = verify_ffmpeg_installation()
+
+        assert result is False
+
+    def test_verify_ffmpeg_installation_os_error(self):
+        """Test FFmpeg verification with OS error."""
+        from src.depth_surge_3d.processing.io_operations import verify_ffmpeg_installation
+
+        with patch("subprocess.run", side_effect=OSError()):
+            result = verify_ffmpeg_installation()
+
+        assert result is False
+
+
+class TestGetAvailableSpace:
+    """Test get_available_space function."""
+
+    def test_get_available_space_with_statvfs(self):
+        """Test getting available space using statvfs."""
+        from src.depth_surge_3d.processing.io_operations import get_available_space
+
+        mock_stat = MagicMock()
+        mock_stat.f_bavail = 1000
+        mock_stat.f_frsize = 4096
+
+        with patch("os.statvfs", return_value=mock_stat):
+            result = get_available_space(Path("/tmp"))
+
+        assert result == 1000 * 4096
+
+    def test_get_available_space_fallback_to_shutil(self):
+        """Test getting available space with shutil fallback."""
+        from src.depth_surge_3d.processing.io_operations import get_available_space
+
+        with patch("os.statvfs", side_effect=AttributeError()):
+            with patch("shutil.disk_usage", return_value=(0, 0, 5000000)):
+                result = get_available_space(Path("/tmp"))
+
+        assert result == 5000000
+
+    def test_get_available_space_all_fallbacks_fail(self):
+        """Test getting available space when all methods fail."""
+        from src.depth_surge_3d.processing.io_operations import get_available_space
+
+        with patch("os.statvfs", side_effect=OSError()):
+            with patch("shutil.disk_usage", side_effect=OSError()):
+                result = get_available_space(Path("/tmp"))
+
+        assert result == 0
+
+
+class TestCalculateDirectorySize:
+    """Test calculate_directory_size function."""
+
+    def test_calculate_directory_size_with_files(self):
+        """Test calculating directory size with files."""
+        from src.depth_surge_3d.processing.io_operations import calculate_directory_size
+
+        # Mock os.walk to return directory structure
+        mock_walk_data = [
+            ("/tmp", [], ["file1.txt", "file2.txt"]),
+        ]
+
+        with patch("os.walk", return_value=mock_walk_data):
+            with patch("os.path.exists", return_value=True):
+                with patch("os.path.getsize", side_effect=[1024, 2048]):
+                    result = calculate_directory_size(Path("/tmp"))
+
+        assert result == 3072
+
+    def test_calculate_directory_size_empty_directory(self):
+        """Test calculating size of empty directory."""
+        from src.depth_surge_3d.processing.io_operations import calculate_directory_size
+
+        with patch("os.walk", return_value=[("/tmp", [], [])]):
+            result = calculate_directory_size(Path("/tmp"))
+
+        assert result == 0
+
+    def test_calculate_directory_size_with_permission_error(self):
+        """Test calculating size with permission errors."""
+        from src.depth_surge_3d.processing.io_operations import calculate_directory_size
+
+        with patch("os.walk", side_effect=PermissionError()):
+            result = calculate_directory_size(Path("/tmp"))
+
+        # Should handle permission errors gracefully
+        assert result == 0
