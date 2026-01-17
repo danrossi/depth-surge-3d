@@ -79,9 +79,7 @@ class TestVideoDepthEstimatorDA3:
             mock_da3.from_pretrained.return_value = mock_model
 
             with patch("depth_anything_3.api.DepthAnything3", mock_da3):
-                estimator = VideoDepthEstimatorDA3(
-                    model_name="base", device="cpu", metric=True
-                )
+                estimator = VideoDepthEstimatorDA3(model_name="base", device="cpu", metric=True)
                 result = estimator.load_model()
 
                 assert result is True
@@ -249,9 +247,7 @@ class TestCreateVideoDepthEstimatorDA3:
 
     def test_create_with_custom_params(self):
         """Test factory function with custom parameters."""
-        estimator = create_video_depth_estimator_da3(
-            model_name="base", device="cpu", metric=True
-        )
+        estimator = create_video_depth_estimator_da3(model_name="base", device="cpu", metric=True)
         assert isinstance(estimator, VideoDepthEstimatorDA3)
         assert estimator.model_name == "base"
         assert estimator.device == "cpu"

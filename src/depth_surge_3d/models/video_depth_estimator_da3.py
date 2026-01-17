@@ -67,9 +67,7 @@ class VideoDepthEstimatorDA3:
             # Suppress gsplat dependency warning (only needed for giant models with 3DGS)
             # DA3 uses loguru logger which prints directly, need to suppress before import
             warnings.filterwarnings("ignore", message=".*gsplat.*")
-            warnings.filterwarnings(
-                "ignore", category=UserWarning, module="depth_anything_3"
-            )
+            warnings.filterwarnings("ignore", category=UserWarning, module="depth_anything_3")
 
             # Suppress all depth_anything_3 logging including loguru output
             logging.getLogger("depth_anything_3").setLevel(logging.CRITICAL)
@@ -106,9 +104,7 @@ class VideoDepthEstimatorDA3:
             self.model.eval()
 
             model_variant = "Metric-" if self.metric else ""
-            print(
-                f"Loaded {model_variant}Depth-Anything-V3 ({self.model_name}) on {self.device}"
-            )
+            print(f"Loaded {model_variant}Depth-Anything-V3 ({self.model_name}) on {self.device}")
 
             # Check if xformers is available (optional optimization)
             try:
@@ -176,9 +172,7 @@ class VideoDepthEstimatorDA3:
             process_res = min(max(original_height, original_width), input_size)
 
             if self.verbose:
-                print(
-                    f"  DA3 processing: {len(frames)} frames at {process_res}px resolution"
-                )
+                print(f"  DA3 processing: {len(frames)} frames at {process_res}px resolution")
                 print(f"  Original frame size: {original_width}x{original_height}")
 
             # Run DA3 inference directly on numpy arrays (no file I/O needed!)
@@ -202,10 +196,7 @@ class VideoDepthEstimatorDA3:
                     depth_map = depth_map.cpu().numpy()
 
                 # Resize to original dimensions if different
-                if (
-                    depth_map.shape[0] != original_height
-                    or depth_map.shape[1] != original_width
-                ):
+                if depth_map.shape[0] != original_height or depth_map.shape[1] != original_width:
                     resized = cv2.resize(
                         depth_map,
                         (original_width, original_height),

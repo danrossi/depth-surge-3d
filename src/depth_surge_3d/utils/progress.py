@@ -61,19 +61,14 @@ class ConsoleProgressReporter(ProgressReporter):
 
     def _get_phase_description(self, phase: str) -> str:
         """Get a user-friendly description for a phase."""
-        return PROCESSING_PHASES.get(phase, {}).get(
-            "description", phase.replace("_", " ").title()
-        )
+        return PROCESSING_PHASES.get(phase, {}).get("description", phase.replace("_", " ").title())
 
     def report_progress(self, current: int, total: int, message: str = "") -> None:
         """Report progress to console with optional tqdm support."""
         current_time = time.time()
 
         # Throttle updates for non-tqdm mode
-        if (
-            not self.use_tqdm
-            and current_time - self.last_update_time < PROGRESS_UPDATE_INTERVAL
-        ):
+        if not self.use_tqdm and current_time - self.last_update_time < PROGRESS_UPDATE_INTERVAL:
             return
 
         self.last_update_time = current_time
@@ -104,9 +99,7 @@ class ConsoleProgressReporter(ProgressReporter):
                 else:
                     eta_str = ""
 
-                progress_line = (
-                    f"\r{message} {percentage:.1f}% ({current}/{total}){eta_str}"
-                )
+                progress_line = f"\r{message} {percentage:.1f}% ({current}/{total}){eta_str}"
                 print(progress_line, end="", flush=True)
 
     def report_completion(self, message: str = "") -> None:
@@ -147,9 +140,7 @@ class ProgressTracker:
         message = f"[SERIAL] Frame {frame_num}/{self.total_frames} - {step_description}"
         self.reporter.report_progress(frame_num, self.total_frames, message)
 
-    def update_batch_step(
-        self, step_name: str, progress: int = 0, total: int = 0
-    ) -> None:
+    def update_batch_step(self, step_name: str, progress: int = 0, total: int = 0) -> None:
         """Update progress for batch processing step."""
         if step_name in self.steps:
             self.current_step_index = self.steps.index(step_name)
@@ -176,9 +167,7 @@ class ProgressTracker:
         step_progress_ratio = (
             (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
         )
-        overall_progress = (
-            (self.current_step_index + step_progress_ratio) / len(self.steps)
-        ) * 100
+        overall_progress = ((self.current_step_index + step_progress_ratio) / len(self.steps)) * 100
 
         if self.step_total > 0:
             step_percentage = (self.step_progress / self.step_total) * 100
@@ -256,15 +245,11 @@ class ProgressCallback:
 
         # Calculate progress based on processing mode
         if self.processing_mode == "batch":
-            progress = self._calculate_batch_progress(
-                step_name, step_progress, step_total
-            )
+            progress = self._calculate_batch_progress(step_name, step_progress, step_total)
             progress_data = self._create_batch_progress_data(stage, step_name, progress)
         else:
             progress = self._calculate_serial_progress(frame_num)
-            progress_data = self._create_serial_progress_data(
-                stage, frame_num, progress
-            )
+            progress_data = self._create_serial_progress_data(stage, frame_num, progress)
 
         # Execute callback if provided
         if self.callback_func:
@@ -287,9 +272,7 @@ class ProgressCallback:
         step_progress_ratio = (
             (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
         )
-        overall_progress = (
-            (self.current_step_index + step_progress_ratio) / len(self.steps)
-        ) * 100
+        overall_progress = ((self.current_step_index + step_progress_ratio) / len(self.steps)) * 100
 
         return round(overall_progress, PROGRESS_DECIMAL_PLACES)
 
@@ -302,9 +285,7 @@ class ProgressCallback:
         if self.current_phase == "extraction":
             return (frame_num / self.total_frames * 20) if self.total_frames > 0 else 0
         elif self.current_phase == "processing":
-            frame_progress = (
-                (frame_num / self.total_frames * 65) if self.total_frames > 0 else 0
-            )
+            frame_progress = (frame_num / self.total_frames * 65) if self.total_frames > 0 else 0
             return 20 + frame_progress
         elif self.current_phase == "video":
             return 85 + 15  # Set to 100% for video phase

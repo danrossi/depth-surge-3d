@@ -18,9 +18,7 @@ VIDEO_DEPTH_ANYTHING_REPO_DIR = "video_depth_anything_repo"
 # Depth estimation model parameters
 DEPTH_MODEL_INPUT_SIZE = 518  # Input resolution for depth estimation model
 DEPTH_MODEL_CHUNK_SIZE = 32  # Number of frames to process in one batch
-DEPTH_MODEL_DEFAULT_FPS = (
-    30  # Default FPS for depth estimation when original cannot be determined
-)
+DEPTH_MODEL_DEFAULT_FPS = 30  # Default FPS for depth estimation when original cannot be determined
 
 # Video model configurations
 MODEL_CONFIGS = {
@@ -118,9 +116,7 @@ RESOLUTION_CATEGORIES = {
 }
 
 # Progress tracking configuration
-PROGRESS_UPDATE_INTERVAL = (
-    0.1  # seconds - throttle for progress updates (10 updates/sec)
-)
+PROGRESS_UPDATE_INTERVAL = 0.1  # seconds - throttle for progress updates (10 updates/sec)
 PROGRESS_DECIMAL_PLACES = 1  # decimal places for progress percentage
 PROGRESS_STEP_WEIGHTS = [
     0.01,

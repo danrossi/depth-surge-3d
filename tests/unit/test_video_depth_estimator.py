@@ -159,9 +159,7 @@ class TestCreateVideoDepthEstimator:
     def test_create_with_custom_params(self):
         """Test factory function with custom parameters."""
         custom_path = "models/custom.pth"
-        estimator = create_video_depth_estimator(
-            model_path=custom_path, device="cpu", metric=True
-        )
+        estimator = create_video_depth_estimator(model_path=custom_path, device="cpu", metric=True)
         assert isinstance(estimator, VideoDepthEstimator)
         assert estimator.model_path == custom_path
         assert estimator.device == "cpu"

@@ -119,9 +119,7 @@ def classify_aspect_ratio(aspect_ratio: float) -> str:
         return "standard"
 
 
-def auto_detect_resolution(
-    source_width: int, source_height: int, vr_format: str
-) -> str:
+def auto_detect_resolution(source_width: int, source_height: int, vr_format: str) -> str:
     """
     Auto-detect optimal VR resolution based on source dimensions.
 
@@ -217,9 +215,7 @@ def validate_resolution_settings(
             result["warnings"].append(
                 f"Wide content (aspect ratio {source_aspect:.2f}) works better with {recommended_format} format"
             )
-            result["recommendations"].append(
-                f"Consider using --format {recommended_format}"
-            )
+            result["recommendations"].append(f"Consider using --format {recommended_format}")
 
     except ValueError as e:
         result["valid"] = False

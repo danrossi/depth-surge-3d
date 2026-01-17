@@ -91,9 +91,7 @@ class VideoDepthEstimator:
             self.model = self.model.to(self.device).eval()
 
             model_variant = "Metric-" if self.metric else ""
-            print(
-                f"Loaded {model_variant}Video-Depth-Anything ({model_type}) on {self.device}"
-            )
+            print(f"Loaded {model_variant}Video-Depth-Anything ({model_type}) on {self.device}")
             return True
 
         except Exception as e:
@@ -204,9 +202,7 @@ class VideoDepthEstimator:
             return self._estimate_depth_chunked(frames, target_fps, input_size, fp32)
         else:
             # Process all at once (original behavior)
-            return self._estimate_depth_single_batch(
-                frames, target_fps, input_size, fp32
-            )
+            return self._estimate_depth_single_batch(frames, target_fps, input_size, fp32)
 
     def _estimate_depth_single_batch(
         self, frames: np.ndarray, target_fps: int, input_size: int, fp32: bool
@@ -267,9 +263,7 @@ class VideoDepthEstimator:
 
             try:
                 # Process chunk with output suppression
-                depths = self._process_depth_chunk(
-                    frames_rgb, target_fps, input_size, fp32
-                )
+                depths = self._process_depth_chunk(frames_rgb, target_fps, input_size, fp32)
 
             except RuntimeError as e:
                 if "out of memory" in str(e).lower():

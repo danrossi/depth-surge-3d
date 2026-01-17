@@ -26,31 +26,20 @@ python depth_surge_3d.py input.mp4 -s 1:00 -e 2:00 --resolution 1080p
 
 ## Code Quality Standards (REQUIRED)
 
-**Before committing, ALWAYS run:**
+**See [CODING_GUIDE.md](CODING_GUIDE.md) for comprehensive coding standards including:**
+- Functional programming principles
+- Type hints, documentation, and complexity limits
+- Testing requirements and best practices
+- Refactoring guidelines
+
+**Quick Pre-Commit Checklist:**
 ```bash
-black .                    # Format code (required, no exceptions)
-flake8 src/ tests/        # Lint code (must pass)
-pytest tests/unit -v      # Run unit tests
+black src/ tests/              # Format code (required, no exceptions)
+flake8 src/ tests/             # Lint code (must pass)
+pytest tests/unit -v           # Run unit tests
 ```
 
-### Formatting Rules
-1. **Black**: All Python code MUST be formatted with black (line length: 100)
-   - Run `black .` before every commit
-   - CI will fail if code is not black-formatted
-
-2. **Flake8**: Code MUST pass flake8 linting
-   - Max line length: 127 characters
-   - Max complexity: 10
-   - Ignore: E203, W503 (black compatibility)
-
-3. **Type Hints**: Add type annotations to all new functions
-   - Use `from typing import` for complex types
-   - Example: `def process(data: Dict[str, Any]) -> Optional[bool]:`
-
-4. **Docstrings**: Required for all public functions
-   - Use triple quotes
-   - Document parameters, return values, exceptions
-   - Include usage examples for complex functions
+**Current Coverage: 23% → Target: 70%+**
 
 ### Git Workflow
 ```bash
@@ -166,11 +155,14 @@ pytest tests/integration -v -m integration
 ## Documentation Structure
 
 - **README.md**: Quick start, features overview
+- **CODING_GUIDE.md**: Coding standards and refactoring guide
+- **CLAUDE.md**: Development guide (this file)
 - **docs/INSTALLATION.md**: Detailed setup
 - **docs/USAGE.md**: CLI and web UI examples
 - **docs/PARAMETERS.md**: All options explained
 - **docs/TROUBLESHOOTING.md**: Common issues
 - **docs/ARCHITECTURE.md**: Technical deep dive
+- **docs/CONTRIBUTING.md**: Contribution workflow and CI setup
 
 ## Important Notes
 

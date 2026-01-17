@@ -55,14 +55,10 @@ def analyze_batch_directory(batch_path: Path) -> Dict[str, Any]:
     }
 
     # Detect highest processing stage and frame count
-    highest_stage_num, highest_stage_name, frame_count = _detect_highest_stage(
-        batch_path, stages
-    )
+    highest_stage_num, highest_stage_name, frame_count = _detect_highest_stage(batch_path, stages)
 
     # Detect VR format and resolution
-    vr_format, resolution = _detect_vr_format_and_resolution(
-        batch_path, highest_stage_num
-    )
+    vr_format, resolution = _detect_vr_format_and_resolution(batch_path, highest_stage_num)
 
     # Load settings summary
     settings_summary = _load_settings_summary(batch_path)
@@ -80,9 +76,7 @@ def analyze_batch_directory(batch_path: Path) -> Dict[str, Any]:
     }
 
 
-def create_video_from_batch(
-    batch_path: Path, settings: Dict[str, Any]
-) -> Optional[Path]:
+def create_video_from_batch(batch_path: Path, settings: Dict[str, Any]) -> Optional[Path]:
     """
     Create video from batch frames using FFmpeg.
 
@@ -177,9 +171,7 @@ def _get_stage_number(stage_dir: str) -> int:
         return 0
 
 
-def _detect_highest_stage(
-    batch_path: Path, stages: Dict[str, str]
-) -> tuple[int, str, int]:
+def _detect_highest_stage(batch_path: Path, stages: Dict[str, str]) -> tuple[int, str, int]:
     """
     Detect the highest processing stage and frame count.
 
@@ -204,9 +196,7 @@ def _detect_highest_stage(
     return highest_stage_num, highest_stage_name, frame_count
 
 
-def _detect_vr_format_and_resolution(
-    batch_path: Path, highest_stage_num: int
-) -> tuple[str, str]:
+def _detect_vr_format_and_resolution(batch_path: Path, highest_stage_num: int) -> tuple[str, str]:
     """
     Detect VR format and resolution from sample frames.
 

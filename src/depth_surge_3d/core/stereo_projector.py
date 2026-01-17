@@ -55,14 +55,10 @@ class StereoProjector:
         if depth_model_version == "v3":
             # Use Depth Anything V3 (model_path is used as model_name)
             model_name = model_path if model_path else None
-            self.depth_estimator = create_video_depth_estimator_da3(
-                model_name, device, metric
-            )
+            self.depth_estimator = create_video_depth_estimator_da3(model_name, device, metric)
         else:
             # Use Video-Depth-Anything V2 (default)
-            self.depth_estimator = create_video_depth_estimator(
-                model_path, device, metric
-            )
+            self.depth_estimator = create_video_depth_estimator(model_path, device, metric)
 
         self._model_loaded = False
 
@@ -154,9 +150,7 @@ class StereoProjector:
         Returns:
             True if processing completed successfully
         """
-        print(
-            "WARNING: Single image processing is not optimized with Video-Depth-Anything."
-        )
+        print("WARNING: Single image processing is not optimized with Video-Depth-Anything.")
         print("For best results, convert your image to a video first.")
         print("This feature will process the image as a single-frame video.")
 
@@ -226,12 +220,8 @@ class StereoProjector:
 
             # Apply hole filling
             if settings["hole_fill_quality"] in ["fast", "advanced"]:
-                left_img = hole_fill_image(
-                    left_img, method=settings["hole_fill_quality"]
-                )
-                right_img = hole_fill_image(
-                    right_img, method=settings["hole_fill_quality"]
-                )
+                left_img = hole_fill_image(left_img, method=settings["hole_fill_quality"])
+                right_img = hole_fill_image(right_img, method=settings["hole_fill_quality"])
 
             # Apply center cropping
             left_cropped = apply_center_crop(left_img, settings["crop_factor"])
@@ -289,9 +279,7 @@ class StereoProjector:
 
         return settings
 
-    def _validate_inputs(
-        self, video_path: str, output_dir: str, settings: Dict[str, Any]
-    ) -> bool:
+    def _validate_inputs(self, video_path: str, output_dir: str, settings: Dict[str, Any]) -> bool:
         """Validate input parameters."""
         # Validate video file
         if not validate_video_file(video_path):
@@ -345,9 +333,7 @@ class StereoProjector:
             print(f"Recommendation: {recommendation}")
 
         # Get final resolution dimensions
-        per_eye_width, per_eye_height = get_resolution_dimensions(
-            resolved["vr_resolution"]
-        )
+        per_eye_width, per_eye_height = get_resolution_dimensions(resolved["vr_resolution"])
         vr_output_width, vr_output_height = calculate_vr_output_dimensions(
             per_eye_width, per_eye_height, resolved["vr_format"]
         )
