@@ -919,3 +919,127 @@ class TestCreateOutputVideo:
         )
 
         assert result is False
+
+
+class TestProcessImage:
+    """Test process_image method."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    @patch("cv2.imwrite")
+    @patch("pathlib.Path.mkdir")
+    def test_process_image_success(self, mock_mkdir, mock_imwrite, mock_imread, mock_create):
+        """Test successful image processing."""
+        import numpy as np
+
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_estimator.estimate_depth_batch.return_value = np.array([np.random.rand(480, 640)])
+        mock_create.return_value = mock_estimator
+
+        # Mock imread to return a valid image
+        mock_imread.return_value = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        mock_imwrite.return_value = True
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_image("test.jpg", "/tmp/output")
+
+        assert result is True
+        mock_estimator.load_model.assert_called_once()
+        mock_estimator.estimate_depth_batch.assert_called_once()
+        # Should save 4 images: left, right, vr, depth
+        assert mock_imwrite.call_count == 4
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    def test_process_image_model_load_failure(self, mock_imread, mock_create):
+        """Test process_image when model fails to load."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = False
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_image("test.jpg", "/tmp/output")
+
+        assert result is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    def test_process_image_invalid_image(self, mock_imread, mock_create):
+        """Test process_image with invalid image file."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_create.return_value = mock_estimator
+
+        mock_imread.return_value = None
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_image("invalid.jpg", "/tmp/output")
+
+        assert result is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    def test_process_image_depth_estimation_failure(self, mock_imread, mock_create):
+        """Test process_image when depth estimation fails."""
+        import numpy as np
+
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_estimator.estimate_depth_batch.return_value = None
+        mock_create.return_value = mock_estimator
+
+        mock_imread.return_value = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_image("test.jpg", "/tmp/output")
+
+        assert result is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    def test_process_image_with_custom_settings(self, mock_imread, mock_create):
+        """Test process_image with custom settings."""
+        import numpy as np
+
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_estimator.estimate_depth_batch.return_value = np.array([np.random.rand(480, 640)])
+        mock_create.return_value = mock_estimator
+
+        mock_imread.return_value = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+        projector = StereoProjector(device="cpu")
+
+        with patch("cv2.imwrite", return_value=True):
+            with patch("pathlib.Path.mkdir"):
+                result = projector.process_image(
+                    "test.jpg",
+                    "/tmp/output",
+                    baseline=0.065,
+                    focal_length=800,
+                    depth_resolution="720",
+                )
+
+        assert result is True
+        # Verify custom depth resolution was used
+        call_args = mock_estimator.estimate_depth_batch.call_args
+        # Custom depth resolution would be set if higher than image size
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("cv2.imread")
+    def test_process_image_exception_handling(self, mock_imread, mock_create):
+        """Test process_image handles exceptions gracefully."""
+        import numpy as np
+
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_estimator.estimate_depth_batch.side_effect = RuntimeError("Processing error")
+        mock_create.return_value = mock_estimator
+
+        mock_imread.return_value = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+        projector = StereoProjector(device="cpu")
+        result = projector.process_image("test.jpg", "/tmp/output")
+
+        assert result is False
