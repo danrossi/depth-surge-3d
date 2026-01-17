@@ -2665,13 +2665,77 @@
             }
         });
 
+        // Check for resumable jobs
+        function checkForResumableJobs() {
+            fetch('/detect_resumable')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.jobs && data.jobs.length > 0) {
+                        const mostRecent = data.jobs[0];
+                        showResumableJobNotification(mostRecent, data.jobs.length);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking for resumable jobs:', error);
+                });
+        }
+
+        function showResumableJobNotification(job, totalJobs) {
+            const message = totalJobs > 1
+                ? `Found ${totalJobs} incomplete processing jobs. Most recent: "${job.name}" (${job.highest_stage})`
+                : `Found incomplete processing: "${job.name}" (${job.highest_stage})`;
+
+            // Create toast notification
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-info border-0" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas fa-info-circle"></i> ${message}
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-light me-2" onclick="resumeJob('${job.path}')">Resume</button>
+                                <button class="btn btn-sm btn-outline-light" data-bs-dismiss="toast">Dismiss</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.createElement('div');
+            toastContainer.innerHTML = toastHtml;
+            document.body.appendChild(toastContainer);
+
+            const toastElement = toastContainer.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement, { autohide: false });
+            toast.show();
+        }
+
+        function resumeJob(jobPath) {
+            // Pre-populate resume field and scroll to it
+            document.getElementById('resumeDirectory').value = jobPath;
+
+            // Dismiss any visible toasts
+            document.querySelectorAll('.toast').forEach(t => {
+                const toast = bootstrap.Toast.getInstance(t);
+                if (toast) toast.hide();
+            });
+
+            // Scroll to resume section
+            document.getElementById('resumeDirectory').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Highlight the field briefly
+            const resumeField = document.getElementById('resumeDirectory');
+            resumeField.classList.add('bg-warning');
+            setTimeout(() => resumeField.classList.remove('bg-warning'), 2000);
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initSocket();
             updateSystemInfo();
             loadSettings();
             setupAutoSave();
-            
+            checkForResumableJobs();  // Check for incomplete jobs
+
             // Update system info every 5 seconds
             setInterval(updateSystemInfo, 5000);
         });

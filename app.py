@@ -898,6 +898,59 @@ def get_system_info_endpoint():
     return jsonify(get_system_info())
 
 
+@app.route("/detect_resumable")
+def detect_resumable_jobs():
+    """Detect incomplete processing jobs that can be resumed"""
+    output_folder = Path(app.config["OUTPUT_FOLDER"])
+    if not output_folder.exists():
+        return jsonify({"success": True, "jobs": []})
+
+    resumable_jobs = []
+
+    try:
+        # Scan output directories for incomplete jobs
+        for batch_dir in output_folder.iterdir():
+            if not batch_dir.is_dir():
+                continue
+
+            # Check for original video file
+            has_video = False
+            for ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
+                if (batch_dir / f"original_video{ext}").exists():
+                    has_video = True
+                    break
+
+            if not has_video:
+                continue
+
+            # Check if processing is incomplete (has frames but no final video)
+            has_frames = (batch_dir / INTERMEDIATE_DIRS["frames"]).exists()
+            has_final_video = any(batch_dir.glob("*_3D_*.mp4"))
+
+            if has_frames and not has_final_video:
+                # This is a resumable job
+                analysis = analyze_batch_directory(batch_dir)
+                resumable_jobs.append(
+                    {
+                        "path": str(batch_dir),
+                        "name": batch_dir.name,
+                        "highest_stage": analysis.get("highest_stage", "unknown"),
+                        "frame_count": analysis.get("frame_count", 0),
+                        "vr_format": analysis.get("vr_format", "unknown"),
+                        "resolution": analysis.get("resolution", "unknown"),
+                    }
+                )
+
+        # Sort by modification time (most recent first)
+        resumable_jobs.sort(key=lambda x: Path(x["path"]).stat().st_mtime, reverse=True)
+
+        return jsonify({"success": True, "jobs": resumable_jobs})
+
+    except Exception as e:
+        vprint(f"Error detecting resumable jobs: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route("/open_directory", methods=["POST"])
 def open_directory():
     """Open directory in file explorer"""
