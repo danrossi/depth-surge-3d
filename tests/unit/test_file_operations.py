@@ -1,10 +1,17 @@
 """Unit tests for file operations utilities."""
 
+import tempfile
+import os
+from pathlib import Path
 from src.depth_surge_3d.utils.file_operations import (
     parse_time_string,
     calculate_frame_range,
     generate_frame_filename,
     generate_output_filename,
+    sanitize_filename,
+    format_file_size,
+    validate_video_file,
+    validate_image_file,
 )
 
 
@@ -266,3 +273,187 @@ class TestGenerateOutputFilename:
         # Should still generate valid filename
         assert filename.endswith(".mp4")
         assert len(filename) > 4  # More than just ".mp4"
+
+
+class TestSanitizeFilename:
+    """Test filename sanitization function."""
+
+    def test_sanitize_basic(self):
+        """Test basic filename sanitization."""
+        filename = "my_video.mp4"
+        sanitized = sanitize_filename(filename)
+        assert sanitized == "my_video.mp4"
+
+    def test_sanitize_invalid_chars(self):
+        """Test removal of invalid characters."""
+        filename = 'video<>:"/\\|?*.mp4'
+        sanitized = sanitize_filename(filename)
+        # All invalid chars should be replaced with underscores
+        assert "<" not in sanitized
+        assert ">" not in sanitized
+        assert ":" not in sanitized
+        assert '"' not in sanitized
+        assert "/" not in sanitized
+        assert "\\" not in sanitized
+        assert "|" not in sanitized
+        assert "?" not in sanitized
+        assert "*" not in sanitized
+
+    def test_sanitize_multiple_underscores(self):
+        """Test removal of multiple consecutive underscores."""
+        filename = "my___video____file.mp4"
+        sanitized = sanitize_filename(filename)
+        assert "__" not in sanitized
+        assert sanitized == "my_video_file.mp4"
+
+    def test_sanitize_trim_underscores(self):
+        """Test trimming leading/trailing underscores."""
+        filename = "___video___"
+        sanitized = sanitize_filename(filename)
+        assert not sanitized.startswith("_")
+        assert not sanitized.endswith("_")
+
+    def test_sanitize_long_filename(self):
+        """Test filename length limiting."""
+        long_name = "a" * 250 + ".mp4"
+        sanitized = sanitize_filename(long_name)
+        assert len(sanitized) <= 200
+
+    def test_sanitize_preserves_extension(self):
+        """Test that extension is preserved when truncating."""
+        long_name = "a" * 250 + ".mp4"
+        sanitized = sanitize_filename(long_name)
+        assert sanitized.endswith(".mp4")
+
+
+class TestFormatFileSize:
+    """Test file size formatting function."""
+
+    def test_format_bytes(self):
+        """Test formatting bytes."""
+        assert format_file_size(0) == "0 B"
+        assert format_file_size(500) == "500 B"
+        assert format_file_size(1023) == "1023 B"
+
+    def test_format_kilobytes(self):
+        """Test formatting kilobytes."""
+        assert format_file_size(1024) == "1.0 KB"
+        assert format_file_size(2048) == "2.0 KB"
+        assert format_file_size(1536) == "1.5 KB"
+
+    def test_format_megabytes(self):
+        """Test formatting megabytes."""
+        assert format_file_size(1024 * 1024) == "1.0 MB"
+        assert format_file_size(5 * 1024 * 1024) == "5.0 MB"
+
+    def test_format_gigabytes(self):
+        """Test formatting gigabytes."""
+        assert format_file_size(1024 * 1024 * 1024) == "1.0 GB"
+        assert format_file_size(2 * 1024 * 1024 * 1024) == "2.0 GB"
+
+    def test_format_terabytes(self):
+        """Test formatting terabytes."""
+        assert format_file_size(1024 * 1024 * 1024 * 1024) == "1.0 TB"
+
+    def test_format_decimal_precision(self):
+        """Test decimal precision in formatting."""
+        # 1.5 KB
+        assert "1.5" in format_file_size(1536)
+        # 2.7 MB
+        assert format_file_size(int(2.7 * 1024 * 1024)).startswith("2.")
+
+
+class TestValidateVideoFile:
+    """Test video file validation function."""
+
+    def test_validate_existing_mp4(self):
+        """Test validation of existing MP4 file."""
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_video_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_existing_avi(self):
+        """Test validation of existing AVI file."""
+        with tempfile.NamedTemporaryFile(suffix=".avi", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_video_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_non_existing_file(self):
+        """Test validation fails for non-existing file."""
+        assert validate_video_file("/nonexistent/video.mp4") is False
+
+    def test_validate_invalid_extension(self):
+        """Test validation fails for invalid extension."""
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_video_file(tmp_path) is False
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_case_insensitive(self):
+        """Test validation is case insensitive."""
+        with tempfile.NamedTemporaryFile(suffix=".MP4", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_video_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
+
+
+class TestValidateImageFile:
+    """Test image file validation function."""
+
+    def test_validate_existing_png(self):
+        """Test validation of existing PNG file."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_image_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_existing_jpg(self):
+        """Test validation of existing JPG file."""
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_image_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_non_existing_image(self):
+        """Test validation fails for non-existing image."""
+        assert validate_image_file("/nonexistent/image.png") is False
+
+    def test_validate_invalid_image_extension(self):
+        """Test validation fails for invalid extension."""
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_image_file(tmp_path) is False
+        finally:
+            os.unlink(tmp_path)
+
+    def test_validate_image_case_insensitive(self):
+        """Test validation is case insensitive."""
+        with tempfile.NamedTemporaryFile(suffix=".PNG", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            assert validate_image_file(tmp_path) is True
+        finally:
+            os.unlink(tmp_path)
