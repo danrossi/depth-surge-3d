@@ -160,6 +160,8 @@ Note: Always uses Video-Depth-Anything for temporal consistency across frames.
     # Information and debugging
     parser.add_argument("--list-resolutions", action="store_true", help="List all available VR resolution options")
     parser.add_argument("--model-info", action="store_true", help="Show model information and exit")
+    parser.add_argument("--cache-info", action="store_true", help="Show depth map cache statistics and exit")
+    parser.add_argument("--cache-clear", action="store_true", help="Clear depth map cache and exit")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     return parser
@@ -251,6 +253,30 @@ def main():
     # Handle special commands
     if args.list_resolutions:
         list_available_resolutions()
+        return 0
+
+    if args.cache_info:
+        from depth_surge_3d.utils.depth_cache import get_cache_size, get_cache_dir
+
+        cache_entries, cache_size_bytes = get_cache_size()
+        cache_size_mb = cache_size_bytes / (1024 * 1024)
+        cache_dir = get_cache_dir()
+        print("Depth Map Cache Information")
+        print("=" * 40)
+        print(f"Cache directory: {cache_dir}")
+        print(f"Cached videos:   {cache_entries}")
+        print(f"Total size:      {cache_size_mb:.1f} MB")
+        if cache_entries > 0:
+            print(f"\nAverage:         {cache_size_mb / cache_entries:.1f} MB per video")
+        print("\nCache speeds up re-processing with different stereo/VR settings.")
+        print("To clear cache: depth_surge_3d.py --cache-clear")
+        return 0
+
+    if args.cache_clear:
+        from depth_surge_3d.utils.depth_cache import clear_cache
+
+        count = clear_cache()
+        print(f"Cleared {count} cached video(s) from depth map cache")
         return 0
 
     # Handle resume mode

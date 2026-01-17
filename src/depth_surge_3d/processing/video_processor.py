@@ -28,6 +28,11 @@ from ..processing.io_operations import (
     save_processing_settings,
     update_processing_status,
 )
+from ..utils.depth_cache import (
+    get_cached_depth_maps,
+    save_depth_maps_to_cache,
+    get_cache_size,
+)
 from ..utils.image_processing import (
     resize_image,
     depth_to_disparity,
@@ -251,6 +256,27 @@ class VideoProcessor:
                             )
                         return np.array(depth_maps)
 
+        # Check global depth cache (works across different output batches)
+        video_path = settings.get("video_path")
+        if video_path:
+            cached_depths = get_cached_depth_maps(video_path, settings, len(frame_files))
+            if cached_depths is not None:
+                print("Step 2/7: Loading depth maps from global cache")
+                print(f"  Loaded {len(cached_depths):04d} cached depth maps")
+                cache_entries, cache_size_bytes = get_cache_size()
+                cache_size_mb = cache_size_bytes / (1024 * 1024)
+                print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
+                if progress_tracker:
+                    progress_tracker.update_progress(
+                        "Loaded depth maps from cache",
+                        phase="depth_estimation",
+                        frame_num=len(cached_depths),
+                        step_name="Depth Map Generation",
+                        step_progress=len(cached_depths),
+                        step_total=len(cached_depths),
+                    )
+                return cached_depths
+
         print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
         print("  Using memory-efficient chunked processing...")
         progress_tracker.update_progress(
@@ -279,6 +305,16 @@ class VideoProcessor:
             print(saved_to(f"Saved to: {directories['depth_maps']}\n"))
         else:
             print()
+
+        # Save to global cache for future runs
+        video_path = settings.get("video_path")
+        if video_path and depth_maps is not None:
+            if save_depth_maps_to_cache(video_path, settings, depth_maps):
+                cache_entries, cache_size_bytes = get_cache_size()
+                cache_size_mb = cache_size_bytes / (1024 * 1024)
+                print("  Cached depth maps for future use")
+                print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
+
         return depth_maps
 
     def _step_load_frames(
