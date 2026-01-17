@@ -127,4 +127,3 @@
   - 97% coverage: progress tracking
   - Integration tests for full pipeline
 - [ ] Performance regression tests
-i just notice
