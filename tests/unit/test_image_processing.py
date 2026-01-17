@@ -344,6 +344,16 @@ class TestValidateImageArray:
         image = np.array([])
         assert validate_image_array(image) is False
 
+    def test_validate_zero_size_image(self):
+        """Test validation fails for zero-size image."""
+        image = np.zeros((0, 0, 3), dtype=np.uint8)
+        assert validate_image_array(image) is False
+
+    def test_validate_zero_height_image(self):
+        """Test validation fails for zero height image."""
+        image = np.zeros((0, 100, 3), dtype=np.uint8)
+        assert validate_image_array(image) is False
+
 
 class TestCalculateImageStatistics:
     """Test image statistics calculation function."""
@@ -532,6 +542,17 @@ class TestApplyFisheyeSquareCrop:
         cropped = apply_fisheye_square_crop(image, 150, 150)
 
         assert cropped.shape == (150, 150, 3)
+
+    def test_crop_fallback_zero_crop_factor(self):
+        """Test fallback when crop factor is zero (empty crop)."""
+        # With crop_factor=0, effective_radius=0, resulting in empty crop
+        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+
+        # crop_factor=0 should result in empty cropped image, triggering fallback
+        result = apply_fisheye_square_crop(image, 50, 50, crop_factor=0.0)
+
+        # Should fallback to direct resize of original image
+        assert result.shape == (50, 50, 3)
 
 
 class TestHoleFillImage:
