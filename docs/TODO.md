@@ -35,10 +35,11 @@
   - **Lessons learned**: Use V2 for temporal consistency, not post-processing hacks
   - **Implementation quality**: Complete with 35 passing tests, full UI, metrics, logging
   - **Conclusion**: The right answer is "use V2", not "add optical flow"
-- [ ] V2 Temporal Window Tuning (better alternative to optical flow)
-  - Investigate optimal window sizes for different content types
-  - Test overlap percentages for best temporal consistency
-  - Benchmark memory/quality tradeoffs
+- [x] V2 Temporal Window Tuning ✓ (2026-01-17)
+  - Experimental UI sliders for window size (16-64) and overlap (4-20)
+  - Configurable via settings chain (UI → StereoProjector → VideoDepthEstimator)
+  - Warning about quality impact when deviating from trained default (32 frames)
+  - Allows memory/quality tradeoff experimentation
 
 ### ⚡ Performance Enhancements
 - [x] GPU memory optimization ✓ (2026-01-17)
@@ -88,11 +89,12 @@
 ### 🧪 Experimental Features
 - [ ] Dynamic depth adjustment
   - Auto-tune baseline/focal based on scene content
-- [ ] Scene detection
-  - Different 3D strength for different scene types
-  - Cut detection to reset temporal models
+  - Worth trying to improve 3D effect quality
 - [ ] AI upscaling integration
-  - Real-ESRGAN or similar for enhanced quality
+  - **Goal**: Style-preserving upscaling without altering video aesthetics
+  - **Avoid**: Diffusion models (tend to change style/add artifacts)
+  - **Research needed**: ESRGAN alternatives (check if still SOTA)
+  - **Requirements**: Fast, deterministic, no style changes
 
 ### 📊 Analysis & Debugging
 - [ ] Depth map quality metrics
@@ -129,6 +131,18 @@
 ---
 
 ## Completed ✓
+
+### 2026-01-17 Session - Temporal Window Tuning & UI Fixes
+- [x] Fixed UI freeze after closing completion modal
+  - Reset uploadedFilename and uploadedOutputDir variables
+  - Disable process button until new video uploaded
+  - Clean state management for next processing session
+- [x] Experimental temporal window tuning for V2
+  - UI sliders for window size (16-64 frames, default 32)
+  - UI sliders for overlap (4-20 frames, default 10)
+  - Show/hide controls based on V2 selection
+  - Full settings chain integration
+  - Warning about quality impact when deviating from defaults
 
 ### 2025-10-13 Session - Fisheye Fixes & Console Polish
 - [x] Fixed fisheye distortion to properly fill rectangular VR frames (180° FOV)
