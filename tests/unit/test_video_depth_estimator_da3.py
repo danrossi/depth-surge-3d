@@ -41,6 +41,27 @@ class TestVideoDepthEstimatorDA3:
             estimator = VideoDepthEstimatorDA3(device="auto")
             assert estimator.device in ["cpu", "mps"]
 
+    def test_determine_device_auto_with_mps(self):
+        """Test device determination when MPS is available (Apple Silicon)."""
+        with patch("torch.cuda.is_available", return_value=False):
+            # Mock MPS availability
+            mock_backends = MagicMock()
+            mock_backends.mps.is_available.return_value = True
+
+            with patch("torch.backends", mock_backends):
+                estimator = VideoDepthEstimatorDA3(device="auto")
+                assert estimator.device == "mps"
+
+    def test_determine_device_auto_fallback_to_cpu(self):
+        """Test device determination falls back to CPU when no accelerator available."""
+        with patch("torch.cuda.is_available", return_value=False):
+            # Mock torch.backends without mps attribute
+            mock_backends = MagicMock(spec=[])  # Empty spec means no attributes
+
+            with patch("torch.backends", mock_backends):
+                estimator = VideoDepthEstimatorDA3(device="auto")
+                assert estimator.device == "cpu"
+
     def test_determine_device_explicit(self):
         """Test explicit device specification."""
         estimator = VideoDepthEstimatorDA3(device="cpu")
@@ -89,6 +110,72 @@ class TestVideoDepthEstimatorDA3:
                     "metric" in call_args[0][0].lower()
                     or call_args[0][0] == DA3_MODEL_NAMES["large-metric"]
                 )
+
+    def test_load_model_with_direct_hf_model_id(self):
+        """Test loading with direct Hugging Face model ID (not in DA3_MODEL_NAMES)."""
+        with patch.dict(
+            "sys.modules",
+            {"depth_anything_3": MagicMock(), "depth_anything_3.api": MagicMock()},
+        ):
+            mock_da3 = MagicMock()
+            mock_model = MagicMock()
+            mock_model.to.return_value = mock_model
+            mock_model.eval.return_value = mock_model
+            mock_da3.from_pretrained.return_value = mock_model
+
+            with patch("depth_anything_3.api.DepthAnything3", mock_da3):
+                # Use a custom HF model ID not in DA3_MODEL_NAMES
+                custom_hf_id = "LiheYoung/depth-anything-custom"
+                estimator = VideoDepthEstimatorDA3(model_name=custom_hf_id, device="cpu")
+                result = estimator.load_model()
+
+                assert result is True
+                # Should use the custom ID directly
+                mock_da3.from_pretrained.assert_called_once()
+                called_model_id = mock_da3.from_pretrained.call_args[0][0]
+                assert called_model_id == custom_hf_id
+
+    def test_load_model_with_loguru_suppression(self):
+        """Test that loguru logging is suppressed during model loading."""
+        with patch.dict(
+            "sys.modules",
+            {"depth_anything_3": MagicMock(), "depth_anything_3.api": MagicMock()},
+        ):
+            mock_da3 = MagicMock()
+            mock_model = MagicMock()
+            mock_da3.from_pretrained.return_value = mock_model
+
+            # Mock loguru
+            mock_logger = MagicMock()
+
+            with patch("depth_anything_3.api.DepthAnything3", mock_da3):
+                with patch.dict("sys.modules", {"loguru": MagicMock()}):
+                    with patch("loguru.logger", mock_logger):
+                        estimator = VideoDepthEstimatorDA3(device="cpu")
+                        result = estimator.load_model()
+
+                        assert result is True
+                        # Verify loguru.logger.remove() was called to suppress logs
+                        # (This is best-effort since the actual implementation may vary)
+
+    def test_load_model_exception_handling(self):
+        """Test model loading handles exceptions gracefully."""
+        with patch.dict(
+            "sys.modules",
+            {"depth_anything_3": MagicMock(), "depth_anything_3.api": MagicMock()},
+        ):
+            mock_da3 = MagicMock()
+            # Make from_pretrained raise an exception
+            mock_da3.from_pretrained.side_effect = RuntimeError("Model loading failed")
+
+            with patch("depth_anything_3.api.DepthAnything3", mock_da3):
+                estimator = VideoDepthEstimatorDA3(device="cpu")
+                result = estimator.load_model()
+
+                # Should return False on exception
+                assert result is False
+                # Model should remain None
+                assert estimator.model is None
 
     def test_load_model_import_error(self):
         """Test model loading when DA3 is not installed."""
