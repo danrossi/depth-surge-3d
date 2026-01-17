@@ -341,3 +341,294 @@ class TestProgressReporterInterface:
         reporter.report_completion("All finished")
 
         assert reporter.completion_calls[0]["message"] == "All finished"
+
+
+class TestProgressTrackerBatchMode:
+    """Test ProgressTracker batch mode functionality."""
+
+    def test_update_batch_step(self):
+        """Test updating batch processing step."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.update_batch_step("depth_estimation", progress=50, total=100)
+
+        assert tracker.step_progress == 50
+        assert tracker.step_total == 100
+        # Should have called reporter
+        assert len(mock_reporter.progress_calls) > 0
+
+    def test_update_batch_progress(self):
+        """Test updating progress within batch step."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        # Set initial step
+        tracker.update_batch_step("depth_estimation", progress=0, total=100)
+        initial_calls = len(mock_reporter.progress_calls)
+
+        # Update progress within step
+        tracker.update_batch_progress(progress=75)
+
+        assert tracker.step_progress == 75
+        assert len(mock_reporter.progress_calls) > initial_calls
+
+    def test_update_batch_progress_with_total(self):
+        """Test updating progress with new total."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.update_batch_progress(progress=50, total=200)
+
+        assert tracker.step_progress == 50
+        assert tracker.step_total == 200
+
+    def test_display_batch_with_progress(self):
+        """Test batch display with step progress."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.update_batch_step("depth_estimation", progress=50, total=100)
+
+        # Check that progress was reported
+        assert len(mock_reporter.progress_calls) > 0
+        last_call = mock_reporter.progress_calls[-1]
+        assert "BATCH" in last_call["message"]
+
+    def test_display_batch_without_progress(self):
+        """Test batch display without step progress."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.update_batch_step("depth_estimation", progress=0, total=0)
+
+        # Check that progress was reported even with zero total
+        assert len(mock_reporter.progress_calls) > 0
+
+    def test_update_progress_with_step_name(self):
+        """Test unified update_progress with step_name."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.update_progress(
+            stage="processing", step_name="depth_estimation", step_progress=25, step_total=100
+        )
+
+        assert tracker.step_progress == 25
+        assert tracker.step_total == 100
+
+    def test_update_progress_with_step_progress_only(self):
+        """Test unified update_progress with step_progress only."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        # Set initial step
+        tracker.update_batch_step("depth_estimation", progress=0, total=100)
+
+        # Update with progress only
+        tracker.update_progress(stage="processing", step_progress=50)
+
+        assert tracker.step_progress == 50
+
+    def test_finish(self):
+        """Test finishing progress tracking."""
+        mock_reporter = MockProgressReporter()
+        tracker = ProgressTracker(total_frames=100, processing_mode="batch", reporter=mock_reporter)
+
+        tracker.finish("All done!")
+
+        assert len(mock_reporter.completion_calls) == 1
+        assert mock_reporter.completion_calls[0]["message"] == "All done!"
+
+
+class TestProgressCallback:
+    """Test ProgressCallback class."""
+
+    def test_init(self):
+        """Test initialization."""
+        callback = ProgressCallback(session_id="test123", total_frames=100, processing_mode="batch")
+
+        assert callback.session_id == "test123"
+        assert callback.total_frames == 100
+        assert callback.processing_mode == "batch"
+        assert callback.callback_func is None
+        assert callback.current_phase == "extraction"
+
+    def test_update_progress_batch_mode(self):
+        """Test update_progress in batch mode."""
+        called_data = []
+
+        def mock_callback(data):
+            called_data.append(data)
+
+        callback = ProgressCallback(
+            session_id="test123",
+            total_frames=100,
+            processing_mode="batch",
+            callback_func=mock_callback,
+        )
+
+        # First update should trigger callback (no throttling on first call)
+        callback.update_progress(
+            stage="processing", step_name="depth_estimation", step_progress=50, step_total=100
+        )
+
+        # Need to wait for throttle interval
+        time.sleep(0.6)
+
+        callback.update_progress(
+            stage="processing", step_name="depth_estimation", step_progress=75, step_total=100
+        )
+
+        # Should have at least one callback
+        assert len(called_data) >= 1
+        assert called_data[0]["session_id"] == "test123"
+        assert called_data[0]["processing_mode"] == "batch"
+        assert "step_name" in called_data[0]
+
+    def test_update_progress_serial_mode(self):
+        """Test update_progress in serial mode."""
+        called_data = []
+
+        def mock_callback(data):
+            called_data.append(data)
+
+        callback = ProgressCallback(
+            session_id="test456",
+            total_frames=100,
+            processing_mode="serial",
+            callback_func=mock_callback,
+        )
+
+        callback.update_progress(stage="extraction", frame_num=50, phase="extraction")
+
+        time.sleep(0.6)
+
+        callback.update_progress(stage="extraction", frame_num=75, phase="extraction")
+
+        # Should have at least one callback
+        assert len(called_data) >= 1
+        assert called_data[0]["session_id"] == "test456"
+        assert called_data[0]["processing_mode"] == "serial"
+        assert "current_frame" in called_data[0]
+
+    def test_calculate_batch_progress(self):
+        """Test batch progress calculation."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="batch")
+
+        progress = callback._calculate_batch_progress(
+            step_name="depth_estimation", step_progress=50, step_total=100
+        )
+
+        # Progress should be a float between 0-100
+        assert isinstance(progress, float)
+        assert 0 <= progress <= 100
+
+    def test_calculate_serial_progress_extraction(self):
+        """Test serial progress calculation in extraction phase."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="serial")
+
+        callback.current_phase = "extraction"
+        progress = callback._calculate_serial_progress(frame_num=50)
+
+        # Extraction is 20% of total, so 50/100 frames = 10% overall
+        assert progress == 10.0
+
+    def test_calculate_serial_progress_processing(self):
+        """Test serial progress calculation in processing phase."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="serial")
+
+        callback.current_phase = "processing"
+        progress = callback._calculate_serial_progress(frame_num=50)
+
+        # Processing starts at 20% and is 65% of total
+        # 50/100 frames = 32.5% of processing = 52.5% overall
+        assert progress == 52.5
+
+    def test_calculate_serial_progress_video(self):
+        """Test serial progress calculation in video phase."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="serial")
+
+        callback.current_phase = "video"
+        progress = callback._calculate_serial_progress(frame_num=100)
+
+        # Video phase is 100%
+        assert progress == 100.0
+
+    def test_calculate_serial_progress_unknown_phase(self):
+        """Test serial progress calculation with unknown phase."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="serial")
+
+        callback.current_phase = "unknown"
+        progress = callback._calculate_serial_progress(frame_num=50)
+
+        # Unknown phase should return 0
+        assert progress == 0.0
+
+    def test_calculate_serial_progress_none_frame(self):
+        """Test serial progress calculation with None frame_num."""
+        callback = ProgressCallback(session_id="test", total_frames=100, processing_mode="serial")
+
+        progress = callback._calculate_serial_progress(frame_num=None)
+
+        # None frame should return 0
+        assert progress == 0.0
+
+    def test_create_batch_progress_data(self):
+        """Test creating batch progress data dictionary."""
+        callback = ProgressCallback(session_id="test123", total_frames=100, processing_mode="batch")
+
+        data = callback._create_batch_progress_data(
+            stage="processing", step_name="depth_estimation", progress=50.0
+        )
+
+        assert data["session_id"] == "test123"
+        assert data["progress"] == 50.0
+        assert data["stage"] == "processing"
+        assert data["processing_mode"] == "batch"
+        assert data["step_name"] == "depth_estimation"
+        assert "step_progress" in data
+        assert "step_total" in data
+
+    def test_create_serial_progress_data(self):
+        """Test creating serial progress data dictionary."""
+        callback = ProgressCallback(
+            session_id="test456", total_frames=100, processing_mode="serial"
+        )
+
+        data = callback._create_serial_progress_data(
+            stage="extraction", frame_num=50, progress=25.0
+        )
+
+        assert data["session_id"] == "test456"
+        assert data["progress"] == 25.0
+        assert data["stage"] == "extraction"
+        assert data["processing_mode"] == "serial"
+        assert data["current_frame"] == 50
+        assert data["total_frames"] == 100
+
+    def test_throttling(self):
+        """Test that updates are throttled."""
+        called_data = []
+
+        def mock_callback(data):
+            called_data.append(data)
+
+        callback = ProgressCallback(
+            session_id="test",
+            total_frames=100,
+            processing_mode="batch",
+            callback_func=mock_callback,
+        )
+
+        # Make multiple rapid updates
+        for i in range(10):
+            callback.update_progress(
+                stage="processing",
+                step_name="depth_estimation",
+                step_progress=i * 10,
+                step_total=100,
+            )
+
+        # Should be throttled to very few calls (likely just 1-2)
+        assert len(called_data) < 10
