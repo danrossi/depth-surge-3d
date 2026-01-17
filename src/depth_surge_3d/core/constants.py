@@ -244,7 +244,7 @@ MIN_FOV = 75  # degrees
 MAX_FOV = 180  # degrees
 
 # Hole filling methods
-HOLE_FILL_METHODS = ["fast", "advanced"]
+HOLE_FILL_METHODS = ["fast", "advanced", "high"]
 
 # Directory names for intermediate files
 # Numbered to match processing steps: 00=input, 01-07=processing, 99=output
