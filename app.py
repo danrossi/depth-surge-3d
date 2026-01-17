@@ -244,6 +244,7 @@ class ProgressCallback:
         self.current_phase = "extraction"  # extraction, processing, video
         self.step_start_times = {}  # Track start time for each step
         self.current_step_name = None
+        self.start_time = time.time()  # For ETA calculation
 
         # Step tracking (used for all modes)
         # Note: These must match the step names sent from video_processor.py
@@ -262,6 +263,52 @@ class ProgressCallback:
         self.current_step_index = 0
         self.step_progress = 0
         self.step_total = 0
+
+    def _calculate_eta(self, current_progress: float) -> str | None:
+        """
+        Calculate estimated time remaining based on overall progress.
+
+        Args:
+            current_progress: Current progress percentage (0-100)
+
+        Returns:
+            Formatted ETA string (e.g., "5m 23s") or None if not enough data
+        """
+        if current_progress <= 0:
+            return None
+
+        current_time = time.time()
+        elapsed = current_time - self.start_time
+
+        # Need at least 5 seconds of data for reasonable estimate
+        if elapsed < 5:
+            return None
+
+        # Calculate time per unit of progress
+        progress_ratio = current_progress / 100.0
+        if progress_ratio <= 0:
+            return None
+
+        estimated_total_time = elapsed / progress_ratio
+        remaining_time = estimated_total_time - elapsed
+
+        if remaining_time < 0:
+            return None
+
+        return self._format_time(remaining_time)
+
+    def _format_time(self, seconds: float) -> str:
+        """Format seconds as human-readable time (e.g., '5m 23s' or '2h 15m')."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:  # Less than 1 hour
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
+        else:  # 1 hour or more
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            return f"{hours}h {minutes}m"
 
     def update_progress(
         self,
@@ -333,6 +380,9 @@ class ProgressCallback:
         current_processing["step_total"] = self.step_total
         current_processing["step_index"] = self.current_step_index
 
+        # Calculate ETA
+        eta_str = self._calculate_eta(progress)
+
         # Emit progress update (always include step data for UI)
         progress_data = {
             "progress": current_processing["progress"],
@@ -346,16 +396,18 @@ class ProgressCallback:
             "step_total": self.step_total,
             "step_index": self.current_step_index,
             "total_steps": len(self.steps),
+            "eta": eta_str,  # Add ETA
         }
 
         # Console output - show both overall and step progress
         step_percent = (
             (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
         )
+        eta_suffix = f" | ETA: {eta_str}" if eta_str else ""
         progress_msg = (
             f"Overall: {progress:05.1f}% | "
             f"Step: {step_percent:03.0f}% ({self.step_progress:04d}/{self.step_total:04d}) | "
-            f"{stage}"
+            f"{stage}{eta_suffix}"
         )
         print(progress_msg)
 

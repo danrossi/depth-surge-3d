@@ -1906,7 +1906,8 @@
                 overallText.textContent = data.progress.toFixed(1) + '%';
             }
             if (overallPhase) {
-                overallPhase.textContent = data.stage || 'Processing...';
+                const etaSuffix = data.eta ? ` (ETA: ${data.eta})` : '';
+                overallPhase.textContent = (data.stage || 'Processing...') + etaSuffix;
             }
 
             // Update step-specific progress bars
