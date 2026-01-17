@@ -149,3 +149,153 @@ class TestCreateStereoProjector:
         assert isinstance(projector, StereoProjector)
         assert projector.depth_model_version == "v3"
         mock_create_v3.assert_called_once_with("large", "cuda", False)
+
+
+class TestStereoProjectorHelpers:
+    """Test helper methods of StereoProjector."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("subprocess.run")
+    def test_check_nvenc_available_true(self, mock_run, mock_create):
+        """Test NVENC availability check when NVENC is available."""
+        mock_create.return_value = MagicMock()
+        mock_result = MagicMock()
+        mock_result.stdout = "encoders:\n  hevc_nvenc   NVIDIA NVENC H.265 encoder"
+        mock_run.return_value = mock_result
+
+        projector = StereoProjector(device="cpu")
+        result = projector._check_nvenc_available()
+
+        assert result is True
+        mock_run.assert_called_once()
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("subprocess.run")
+    def test_check_nvenc_available_false(self, mock_run, mock_create):
+        """Test NVENC availability check when NVENC is not available."""
+        mock_create.return_value = MagicMock()
+        mock_result = MagicMock()
+        mock_result.stdout = "encoders:\n  libx264   H.264 encoder"
+        mock_run.return_value = mock_result
+
+        projector = StereoProjector(device="cpu")
+        result = projector._check_nvenc_available()
+
+        assert result is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("subprocess.run")
+    def test_check_nvenc_available_exception(self, mock_run, mock_create):
+        """Test NVENC availability check when subprocess fails."""
+        mock_create.return_value = MagicMock()
+        mock_run.side_effect = Exception("FFmpeg not found")
+
+        projector = StereoProjector(device="cpu")
+        result = projector._check_nvenc_available()
+
+        assert result is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_add_video_encoder_options_nvenc(self, mock_create):
+        """Test adding NVENC encoder options."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        # Mock NVENC as available
+        with patch.object(projector, "_check_nvenc_available", return_value=True):
+            cmd = ["ffmpeg", "-y"]
+            projector._add_video_encoder_options(cmd)
+
+            assert "-c:v" in cmd
+            assert "hevc_nvenc" in cmd
+            assert "-preset" in cmd
+            assert "p7" in cmd
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_add_video_encoder_options_software(self, mock_create):
+        """Test adding software encoder options."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        # Mock NVENC as unavailable
+        with patch.object(projector, "_check_nvenc_available", return_value=False):
+            cmd = ["ffmpeg", "-y"]
+            projector._add_video_encoder_options(cmd)
+
+            assert "-c:v" in cmd
+            assert "libx264" in cmd
+            assert "-crf" in cmd
+            assert "18" in cmd
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_ensure_model_loaded_success(self, mock_create):
+        """Test model loading success."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = True
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+        assert projector._model_loaded is False
+
+        result = projector._ensure_model_loaded()
+
+        assert result is True
+        assert projector._model_loaded is True
+        mock_estimator.load_model.assert_called_once()
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_ensure_model_loaded_already_loaded(self, mock_create):
+        """Test model loading when already loaded."""
+        mock_estimator = MagicMock()
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+        projector._model_loaded = True
+
+        result = projector._ensure_model_loaded()
+
+        assert result is True
+        # Should not call load_model again
+        mock_estimator.load_model.assert_not_called()
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_ensure_model_loaded_failure(self, mock_create):
+        """Test model loading failure."""
+        mock_estimator = MagicMock()
+        mock_estimator.load_model.return_value = False
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+
+        result = projector._ensure_model_loaded()
+
+        assert result is False
+        assert projector._model_loaded is False
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    def test_validate_inputs_valid(self, mock_validate, mock_create):
+        """Test input validation with valid inputs."""
+        mock_create.return_value = MagicMock()
+        mock_validate.return_value = True
+
+        projector = StereoProjector(device="cpu")
+
+        with patch("pathlib.Path.mkdir"):
+            result = projector._validate_inputs("video.mp4", "/tmp/output", {})
+
+        assert result is True
+        mock_validate.assert_called_once_with("video.mp4")
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    @patch("src.depth_surge_3d.core.stereo_projector.validate_video_file")
+    def test_validate_inputs_invalid_video(self, mock_validate, mock_create):
+        """Test input validation with invalid video."""
+        mock_create.return_value = MagicMock()
+        mock_validate.return_value = False
+
+        projector = StereoProjector(device="cpu")
+
+        result = projector._validate_inputs("invalid.txt", "/tmp/output", {})
+
+        assert result is False
