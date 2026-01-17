@@ -699,3 +699,167 @@ class TestUpdateProcessingStatus:
             result = update_processing_status(Path("/tmp/settings.json"), "completed")
 
         assert result is False
+
+
+class TestFindSettingsFile:
+    """Test find_settings_file function."""
+
+    def test_find_settings_file_with_batch_name(self):
+        """Test finding settings file with specific batch name."""
+        from src.depth_surge_3d.processing.io_operations import find_settings_file
+
+        mock_file = MagicMock(spec=Path)
+        mock_file.exists.return_value = True
+
+        with patch("pathlib.Path.__truediv__", return_value=mock_file):
+            result = find_settings_file(Path("/tmp"), "batch1")
+
+        assert result == mock_file
+
+    def test_find_settings_file_without_batch_name(self):
+        """Test finding any settings file."""
+        from src.depth_surge_3d.processing.io_operations import find_settings_file
+
+        mock_file = MagicMock(spec=Path)
+
+        mock_dir = MagicMock(spec=Path)
+        mock_dir.glob.return_value = [mock_file]
+
+        with patch("pathlib.Path.glob", return_value=[mock_file]):
+            result = find_settings_file(mock_dir, None)
+
+        assert result == mock_file
+
+    def test_find_settings_file_not_found(self):
+        """Test when settings file not found."""
+        from src.depth_surge_3d.processing.io_operations import find_settings_file
+
+        mock_file = MagicMock(spec=Path)
+        mock_file.exists.return_value = False
+
+        with patch("pathlib.Path.__truediv__", return_value=mock_file):
+            result = find_settings_file(Path("/tmp"), "batch1")
+
+        assert result is None
+
+    def test_find_settings_file_exception(self):
+        """Test find settings file with exception."""
+        from src.depth_surge_3d.processing.io_operations import find_settings_file
+
+        with patch("pathlib.Path.__truediv__", side_effect=Exception("Error")):
+            result = find_settings_file(Path("/tmp"), "batch1")
+
+        assert result is None
+
+
+class TestCanResumeProcessing:
+    """Test can_resume_processing function."""
+
+    def test_can_resume_processing_no_settings(self):
+        """Test resume when no settings file found."""
+        from src.depth_surge_3d.processing.io_operations import can_resume_processing
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations.find_settings_file",
+            return_value=None,
+        ):
+            result = can_resume_processing(Path("/tmp"))
+
+        assert result["can_resume"] is False
+        assert "No settings file found" in result["recommendations"][0]
+
+    def test_can_resume_processing_completed(self):
+        """Test resume when processing already completed."""
+        from src.depth_surge_3d.processing.io_operations import can_resume_processing
+
+        settings_data = {"metadata": {"batch_name": "batch1", "processing_status": "completed"}}
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations.find_settings_file",
+            return_value=Path("/tmp/settings.json"),
+        ):
+            with patch(
+                "src.depth_surge_3d.processing.io_operations.load_processing_settings",
+                return_value=settings_data,
+            ):
+                result = can_resume_processing(Path("/tmp"))
+
+        assert result["can_resume"] is False
+        assert result["status"] == "completed"
+        assert "already completed" in result["recommendations"][0]
+
+    def test_can_resume_processing_in_progress(self):
+        """Test resume when processing in progress."""
+        from src.depth_surge_3d.processing.io_operations import can_resume_processing
+
+        settings_data = {"metadata": {"batch_name": "batch1", "processing_status": "in_progress"}}
+
+        progress_info = {"frames_processed": 50}
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations.find_settings_file",
+            return_value=Path("/tmp/settings.json"),
+        ):
+            with patch(
+                "src.depth_surge_3d.processing.io_operations.load_processing_settings",
+                return_value=settings_data,
+            ):
+                with patch(
+                    "src.depth_surge_3d.processing.io_operations.analyze_processing_progress",
+                    return_value=progress_info,
+                ):
+                    result = can_resume_processing(Path("/tmp"))
+
+        assert result["can_resume"] is True
+        assert result["status"] == "in_progress"
+        assert "can resume" in result["recommendations"][0]
+
+    def test_can_resume_processing_exception(self):
+        """Test resume with exception."""
+        from src.depth_surge_3d.processing.io_operations import can_resume_processing
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations.find_settings_file",
+            side_effect=Exception("Error"),
+        ):
+            result = can_resume_processing(Path("/tmp"))
+
+        assert result["can_resume"] is False
+        assert "Error checking resume" in result["recommendations"][0]
+
+
+class TestAnalyzeProcessingProgress:
+    """Test analyze_processing_progress function."""
+
+    def test_analyze_processing_progress_with_frames(self):
+        """Test analyzing progress with processed frames."""
+        from src.depth_surge_3d.processing.io_operations import analyze_processing_progress
+
+        settings_data = {
+            "output_info": {"output_directory": "/tmp"},
+            "video_properties": {"frame_count": 100},
+        }
+
+        # Mock directory structure - simulate VR frames exist
+        mock_vr_dir = MagicMock(spec=Path)
+        mock_vr_dir.exists.return_value = True
+        mock_vr_dir.glob.return_value = [Path(f"/tmp/vr_frames/frame_{i}.png") for i in range(50)]
+
+        mock_depth_dir = MagicMock(spec=Path)
+        mock_depth_dir.exists.return_value = False
+
+        def truediv_side_effect(dir_name):
+            if "99_vr_frames" in str(dir_name):
+                return mock_vr_dir
+            elif "02_depth_maps" in str(dir_name):
+                return mock_depth_dir
+            else:
+                mock_other = MagicMock(spec=Path)
+                mock_other.exists.return_value = False
+                return mock_other
+
+        with patch("pathlib.Path.__truediv__", side_effect=truediv_side_effect):
+            result = analyze_processing_progress(Path("/tmp"), settings_data)
+
+        assert "frames_processed" in result
+        assert result["frames_processed"] == 50
