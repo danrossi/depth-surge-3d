@@ -78,9 +78,6 @@
   - Cubemap support
 
 ### 🧪 Experimental Features
-- [ ] Dynamic depth adjustment
-  - Auto-tune baseline/focal based on scene content
-  - Worth trying to improve 3D effect quality
 - [ ] AI upscaling integration
   - **Goal**: Style-preserving upscaling without altering video aesthetics
   - **Avoid**: Diffusion models (tend to change style/add artifacts)
