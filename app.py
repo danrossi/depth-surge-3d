@@ -173,29 +173,30 @@ def ensure_directories() -> None:
 def get_video_info(video_path: str | Path) -> dict[str, Any] | None:
     """Extract video information using OpenCV"""
     cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        return None
+    try:
+        if not cap.isOpened():
+            return None
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = frame_count / fps if fps > 0 else 0
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps if fps > 0 else 0
 
-    cap.release()
+        # Calculate aspect ratio
+        aspect_ratio = width / height if height > 0 else 1.0
 
-    # Calculate aspect ratio
-    aspect_ratio = width / height if height > 0 else 1.0
-
-    return {
-        "width": width,
-        "height": height,
-        "fps": round(fps, FPS_ROUND_DIGITS),
-        "duration": round(duration, DURATION_ROUND_DIGITS),
-        "frame_count": frame_count,
-        "aspect_ratio": round(aspect_ratio, ASPECT_RATIO_ROUND_DIGITS),
-        "aspect_ratio_text": f"{width}:{height}",
-    }
+        return {
+            "width": width,
+            "height": height,
+            "fps": round(fps, FPS_ROUND_DIGITS),
+            "duration": round(duration, DURATION_ROUND_DIGITS),
+            "frame_count": frame_count,
+            "aspect_ratio": round(aspect_ratio, ASPECT_RATIO_ROUND_DIGITS),
+            "aspect_ratio_text": f"{width}:{height}",
+        }
+    finally:
+        cap.release()
 
 
 def get_system_info() -> dict[str, Any]:

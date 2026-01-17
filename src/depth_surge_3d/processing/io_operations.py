@@ -85,6 +85,7 @@ def get_video_properties(video_path: str) -> dict[str, Any]:
         Opens and reads video file with cv2.VideoCapture
     """
     properties: dict[str, Any] = {}
+    cap = None
 
     try:
         cap = cv2.VideoCapture(video_path)
@@ -112,11 +113,12 @@ def get_video_properties(video_path: str) -> dict[str, Any]:
             }
         )
 
-        cap.release()
-
     except Exception:
         # Return empty dict if unable to read properties
         pass
+    finally:
+        if cap is not None:
+            cap.release()
 
     return properties
 
