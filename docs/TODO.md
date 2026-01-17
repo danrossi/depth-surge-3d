@@ -24,22 +24,21 @@
 ## Medium Priority
 
 ### 🎯 Motion & Temporal Consistency
-- [ ] Optical Flow Integration - Evaluate Alternatives
-  - **Option 1: RAFT** (Princeton)
-    - Repository: https://github.com/princeton-vl/RAFT
-    - Well-established, widely used
-  - **Option 2: UniMatch** (New alternative - needs evaluation)
-    - Paper: https://openreview.net/forum?id=iJ7cyttpVj
-    - Downloadable code available
-    - **TODO**: Check license compatibility, compare performance vs RAFT
-  - Use optical flow for motion-aware depth refinement
-  - Improve temporal consistency between frames
-  - Enable motion-guided warping for smoother depth transitions
-  - Potential uses:
-    - Temporal smoothing of depth maps across frames
-    - Motion-compensated depth prediction
-    - Frame interpolation for higher output frame rates
-    - Depth-guided video stabilization
+- ~~[PARKED]~~ Optical Flow Integration
+  - **Status**: Fully implemented, tested, and intentionally NOT merged
+  - **Branch**: `experimental/optical-flow-parked` (do not merge)
+  - **Why parked**: Fundamental theoretical limitations (see EXPERIMENTAL_BRANCH_README.md on branch)
+    - Post-hoc depth warping doesn't address root causes
+    - V2 already has temporal consistency (32-frame windows)
+    - 2D optical flow can't properly handle 3D depth changes
+    - Error propagation, not error correction
+  - **Lessons learned**: Use V2 for temporal consistency, not post-processing hacks
+  - **Implementation quality**: Complete with 35 passing tests, full UI, metrics, logging
+  - **Conclusion**: The right answer is "use V2", not "add optical flow"
+- [ ] V2 Temporal Window Tuning (better alternative to optical flow)
+  - Investigate optimal window sizes for different content types
+  - Test overlap percentages for best temporal consistency
+  - Benchmark memory/quality tradeoffs
 
 ### ⚡ Performance Enhancements
 - [ ] GPU memory optimization

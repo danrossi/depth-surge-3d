@@ -164,6 +164,23 @@ pytest tests/integration -v -m integration
 - **docs/ARCHITECTURE.md**: Technical deep dive
 - **docs/CONTRIBUTING.md**: Contribution workflow and CI setup
 
+## Experimental Branches (Parked)
+
+### ⚠️ `experimental/optical-flow-parked` - DO NOT MERGE
+
+A complete optical flow motion compensation implementation that is **intentionally not merged** due to fundamental theoretical limitations:
+- Post-hoc depth warping doesn't address root causes
+- V2 already has temporal consistency built-in
+- 2D optical flow can't properly handle 3D depth changes
+
+**Implementation**: 2000+ lines, 35 passing tests, full UI integration, comprehensive logging
+**Conclusion**: Use V2 for temporal consistency instead of post-processing hacks
+**Details**: See `EXPERIMENTAL_BRANCH_README.md` on branch
+
+Kept for reference and learning, not for production use.
+
+---
+
 ## Important Notes
 
 1. **Version Bump**: Update version in CLAUDE.md and package files when releasing
@@ -171,6 +188,7 @@ pytest tests/integration -v -m integration
 3. **Dependencies**: Lock versions in requirements.txt, test before merging
 4. **VRAM Limits**: Test on 8GB GPU before recommending settings
 5. **Cross-platform**: Test on Windows, macOS, Linux if changing system calls
+6. **Experimental Branches**: Check TODO.md before implementing features - some are already researched and parked
 
 ## Recent Changes (v0.8.1)
 
