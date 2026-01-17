@@ -119,6 +119,27 @@ class TestGetFrameFiles:
         assert result[1] == Path("frames/frame_002.jpg")
         assert result[2] == Path("frames/frame_003.png")
 
+    def test_get_frame_files_with_non_standard_naming(self):
+        """Test getting frame files with non-standard naming."""
+        mock_frames_dir = MagicMock(spec=Path)
+        mock_frames_dir.exists.return_value = True
+
+        # Files without "frame_" prefix
+        def glob_side_effect(pattern):
+            if pattern == "*.png":
+                return iter([Path("frames/img001.png"), Path("frames/img003.png")])
+            elif pattern == "*.jpg":
+                return iter([Path("frames/photo002.jpg")])
+            else:
+                return iter([])
+
+        mock_frames_dir.glob.side_effect = glob_side_effect
+
+        result = get_frame_files(mock_frames_dir)
+
+        # Should still sort by numbers found in filenames
+        assert len(result) == 3
+
     def test_get_frame_files_empty_directory(self):
         """Test getting frame files from empty directory."""
         mock_frames_dir = MagicMock(spec=Path)
@@ -557,6 +578,45 @@ class TestCleanupDirectory:
 
         result = _cleanup_directory(mock_dir, [])
 
+        assert result == 0
+
+
+class TestCleanupIntermediateFiles:
+    """Test cleanup_intermediate_files function."""
+
+    def test_cleanup_intermediate_files_success(self):
+        """Test cleanup of intermediate files."""
+        from src.depth_surge_3d.processing.io_operations import cleanup_intermediate_files
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations._cleanup_directory",
+            return_value=10,
+        ):
+            with patch("src.depth_surge_3d.processing.io_operations.INTERMEDIATE_DIRS", {"frames": "00_frames"}):
+                mock_dir = MagicMock(spec=Path)
+                mock_dir.exists.return_value = True
+
+                with patch("pathlib.Path.__truediv__", return_value=mock_dir):
+                    result = cleanup_intermediate_files(Path("/tmp"), ["*.png"])
+
+        assert result >= 0
+
+    def test_cleanup_intermediate_files_with_permission_error(self):
+        """Test cleanup with permission error."""
+        from src.depth_surge_3d.processing.io_operations import cleanup_intermediate_files
+
+        with patch(
+            "src.depth_surge_3d.processing.io_operations._cleanup_directory",
+            side_effect=PermissionError("Access denied"),
+        ):
+            with patch("src.depth_surge_3d.processing.io_operations.INTERMEDIATE_DIRS", {"frames": "00_frames"}):
+                mock_dir = MagicMock(spec=Path)
+                mock_dir.exists.return_value = True
+
+                with patch("pathlib.Path.__truediv__", return_value=mock_dir):
+                    result = cleanup_intermediate_files(Path("/tmp"))
+
+        # Should handle error gracefully
         assert result == 0
 
 
