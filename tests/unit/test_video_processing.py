@@ -456,9 +456,7 @@ class TestProcessVideoSerial:
     @patch("src.depth_surge_3d.utils.video_processing._create_intermediate_directories")
     @patch("src.depth_surge_3d.utils.video_processing._get_cv2")
     @patch("src.depth_surge_3d.utils.video_processing._process_single_frame_complete")
-    def test_process_video_serial_success(
-        self, mock_process_frame, mock_get_cv2, mock_create_dirs
-    ):
+    def test_process_video_serial_success(self, mock_process_frame, mock_get_cv2, mock_create_dirs):
         """Test successful serial video processing."""
         mock_cv2 = MagicMock()
         mock_get_cv2.return_value = mock_cv2
