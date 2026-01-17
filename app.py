@@ -93,9 +93,7 @@ def cleanup_processes() -> None:
 
     # Kill any ffmpeg processes related to this app
     try:
-        subprocess.run(
-            ["pkill", "-f", "ffmpeg.*depth-surge"], check=False, capture_output=True
-        )
+        subprocess.run(["pkill", "-f", "ffmpeg.*depth-surge"], check=False, capture_output=True)
     except:
         pass
 
@@ -221,8 +219,7 @@ def get_system_info() -> dict[str, Any]:
             try:
                 allocated = torch.cuda.memory_allocated() / BYTES_TO_GB_DIVISOR
                 total_memory = (
-                    torch.cuda.get_device_properties(0).total_memory
-                    / BYTES_TO_GB_DIVISOR
+                    torch.cuda.get_device_properties(0).total_memory / BYTES_TO_GB_DIVISOR
                 )
                 info["vram_usage"] = f"{allocated:.1f}GB / {total_memory:.1f}GB"
             except Exception as vram_error:
@@ -323,9 +320,7 @@ class ProgressCallback:
 
         # Add weighted progress of current step
         if self.current_step_index < len(self.step_weights):
-            cumulative_weight += (
-                step_progress_ratio * self.step_weights[self.current_step_index]
-            )
+            cumulative_weight += step_progress_ratio * self.step_weights[self.current_step_index]
 
         progress = round(cumulative_weight * 100, PROGRESS_DECIMAL_PLACES)
 
@@ -354,9 +349,7 @@ class ProgressCallback:
 
         # Console output - show both overall and step progress
         step_percent = (
-            (self.step_progress / max(self.step_total, 1)) * 100
-            if self.step_total > 0
-            else 0
+            (self.step_progress / max(self.step_total, 1)) * 100 if self.step_total > 0 else 0
         )
         progress_msg = (
             f"Overall: {progress:05.1f}% | "
@@ -393,11 +386,15 @@ class ProgressCallback:
                 {"success": True, "message": message},
                 room=self.session_id,
             )
+            # Allow time for message to be sent
+            socketio.sleep(SOCKETIO_SLEEP_YIELD)
         except Exception as e:
             print(console_warning(f"Error emitting completion: {e}"))
 
 
-def process_video_async(session_id: str, video_path: str | Path, settings: dict[str, Any], output_dir: str | Path) -> None:
+def process_video_async(
+    session_id: str, video_path: str | Path, settings: dict[str, Any], output_dir: str | Path
+) -> None:
     """Process video in background thread"""
     global current_processing
     import torch  # Import here to avoid CUDA initialization issues in main thread
@@ -453,9 +450,7 @@ def process_video_async(session_id: str, video_path: str | Path, settings: dict[
             # For V3, map model_size to DA3 model names
             da3_model_map = {"vits": "small", "vitb": "base", "vitl": "large"}
             model_path = da3_model_map.get(model_size, "large")
-            print(
-                f"Loading Depth-Anything V3: {model_path.upper()} model (metric: {use_metric})"
-            )
+            print(f"Loading Depth-Anything V3: {model_path.upper()} model (metric: {use_metric})")
 
         print(f"Using device: {device.upper()}")
 
@@ -561,6 +556,8 @@ def process_video_async(session_id: str, video_path: str | Path, settings: dict[
                 },
                 room=session_id,
             )
+            # Allow time for message to be sent before thread terminates
+            socketio.sleep(SOCKETIO_SLEEP_YIELD)
         except Exception as e:
             print(console_warning(f"Error emitting completion: {e}"))
 
@@ -572,14 +569,16 @@ def process_video_async(session_id: str, video_path: str | Path, settings: dict[
                 {"success": True, "message": str(e)},
                 room=session_id,
             )
+            # Allow time for message to be sent before thread terminates
+            socketio.sleep(SOCKETIO_SLEEP_YIELD)
         except Exception as emit_error:
             print(console_warning(f"Error emitting stop: {emit_error}"))
 
     except Exception as e:
         try:
-            socketio.emit(
-                "processing_error", {"success": False, "error": str(e)}, room=session_id
-            )
+            socketio.emit("processing_error", {"success": False, "error": str(e)}, room=session_id)
+            # Allow time for message to be sent before thread terminates
+            socketio.sleep(SOCKETIO_SLEEP_YIELD)
         except Exception as emit_error:
             print(console_warning(f"Error emitting error: {emit_error}"))
         print(f"Processing error: {e}")  # Always print errors
@@ -612,10 +611,7 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     video_name = Path(original_filename).stem
     file_ext = Path(original_filename).suffix
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = (
-        Path(app.config["OUTPUT_FOLDER"])
-        / f"{int(time.time())}_{video_name}_{timestamp}"
-    )
+    output_dir = Path(app.config["OUTPUT_FOLDER"]) / f"{int(time.time())}_{video_name}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save video to output directory as "original_video.ext"
@@ -730,9 +726,7 @@ def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     )
     current_processing["thread"] = thread
 
-    return jsonify(
-        {"success": True, "session_id": session_id, "output_dir": str(output_dir)}
-    )
+    return jsonify({"success": True, "session_id": session_id, "output_dir": str(output_dir)})
 
 
 @app.route("/stop", methods=["POST"])
@@ -784,9 +778,7 @@ def resume_processing():
     if not original_video:
         return (
             jsonify(
-                {
-                    "error": "Could not find original video file in output directory for resuming"
-                }
+                {"error": "Could not find original video file in output directory for resuming"}
             ),
             404,
         )
@@ -803,9 +795,7 @@ def resume_processing():
     )
     current_processing["thread"] = thread
 
-    return jsonify(
-        {"success": True, "session_id": session_id, "output_dir": str(output_path)}
-    )
+    return jsonify({"success": True, "session_id": session_id, "output_dir": str(output_path)})
 
 
 def detect_resume_settings(output_path):
@@ -909,9 +899,7 @@ def analyze_batch_directory(batch_path):
     for stage_dir, stage_name in stages.items():
         stage_path = batch_path / stage_dir
         if stage_path.exists():
-            frame_count = len(list(stage_path.glob("*.png"))) + len(
-                list(stage_path.glob("*.jpg"))
-            )
+            frame_count = len(list(stage_path.glob("*.png"))) + len(list(stage_path.glob("*.jpg")))
             if frame_count > 0:
                 stage_num = int(stage_dir.split("_")[0])
                 if stage_num > highest_stage_num:
@@ -965,9 +953,7 @@ def analyze_batch_directory(batch_path):
 
     # Generate settings summary
     if analysis["vr_format"] != "unknown" and analysis["resolution"] != "unknown":
-        analysis["settings_summary"] = (
-            f"{analysis['vr_format']}, {analysis['resolution']}"
-        )
+        analysis["settings_summary"] = f"{analysis['vr_format']}, {analysis['resolution']}"
 
     return analysis
 
@@ -1024,9 +1010,7 @@ def create_video_from_batch(batch_path, settings):
     cmd = ["ffmpeg", FFMPEG_OVERWRITE_FLAG]
 
     # Input frames
-    cmd.extend(
-        ["-framerate", str(fps) if fps != "original" else str(DEFAULT_FALLBACK_FPS)]
-    )
+    cmd.extend(["-framerate", str(fps) if fps != "original" else str(DEFAULT_FALLBACK_FPS)])
     cmd.extend(["-i", str(frame_dir / "frame_%06d.png")])
 
     # Quality settings
@@ -1063,9 +1047,7 @@ def create_video_from_batch(batch_path, settings):
 
     # Execute FFmpeg
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=VIDEO_CREATION_TIMEOUT
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=VIDEO_CREATION_TIMEOUT)
         if result.returncode != 0:
             raise Exception(f"FFmpeg error: {result.stderr}")
     except subprocess.TimeoutExpired:
@@ -1137,9 +1119,7 @@ def handle_join_session(data):
         from flask_socketio import join_room
 
         join_room(session_id)
-        vprint(
-            f"Client {request.sid} joined session {session_id[:SESSION_ID_DISPLAY_LENGTH]}..."
-        )
+        vprint(f"Client {request.sid} joined session {session_id[:SESSION_ID_DISPLAY_LENGTH]}...")
 
         # Send initial status to joined client
         try:
