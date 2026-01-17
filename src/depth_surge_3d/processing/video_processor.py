@@ -817,9 +817,7 @@ class VideoProcessor:
             mem_free = torch.cuda.mem_get_info()[0] / (1024**3)  # Convert to GB
             print(f"  GPU memory freed: {mem_free:.2f} GB available")
 
-    def _load_chunk_frames(
-        self, chunk_files: list[Path], settings: dict[str, Any]
-    ) -> list | None:
+    def _load_chunk_frames(self, chunk_files: list[Path], settings: dict[str, Any]) -> list | None:
         """Load and optionally supersample frames for a chunk."""
         chunk_frames = []
         for frame_file in chunk_files:
