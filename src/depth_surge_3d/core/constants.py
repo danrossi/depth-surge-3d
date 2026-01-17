@@ -115,6 +115,52 @@ RESOLUTION_CATEGORIES = {
     ],
 }
 
+# VR Headset Presets (optimized settings for popular headsets)
+VR_HEADSET_PRESETS: dict[str, dict[str, int | float | str]] = {
+    "quest-3": {
+        "name": "Meta Quest 3",
+        "per_eye_width": 2064,
+        "per_eye_height": 2208,
+        "fisheye_fov": 110,  # degrees
+        "description": "Optimized for Meta Quest 3 (2064x2208 per eye, 110° FOV)",
+    },
+    "quest-2": {
+        "name": "Meta Quest 2",
+        "per_eye_width": 1832,
+        "per_eye_height": 1920,
+        "fisheye_fov": 100,  # degrees
+        "description": "Optimized for Meta Quest 2 (1832x1920 per eye, 100° FOV)",
+    },
+    "psvr2": {
+        "name": "PlayStation VR2",
+        "per_eye_width": 2000,
+        "per_eye_height": 2040,
+        "fisheye_fov": 110,  # degrees
+        "description": "Optimized for PSVR2 (2000x2040 per eye, 110° FOV)",
+    },
+    "valve-index": {
+        "name": "Valve Index",
+        "per_eye_width": 1440,
+        "per_eye_height": 1600,
+        "fisheye_fov": 130,  # degrees
+        "description": "Optimized for Valve Index (1440x1600 per eye, 130° FOV)",
+    },
+    "vive-pro-2": {
+        "name": "HTC Vive Pro 2",
+        "per_eye_width": 2448,
+        "per_eye_height": 2448,
+        "fisheye_fov": 120,  # degrees
+        "description": "Optimized for HTC Vive Pro 2 (2448x2448 per eye, 120° FOV)",
+    },
+    "pico-4": {
+        "name": "Pico 4",
+        "per_eye_width": 2160,
+        "per_eye_height": 2160,
+        "fisheye_fov": 105,  # degrees
+        "description": "Optimized for Pico 4 (2160x2160 per eye, 105° FOV)",
+    },
+}
+
 # Progress tracking configuration
 PROGRESS_UPDATE_INTERVAL = 0.1  # seconds - throttle for progress updates (10 updates/sec)
 PROGRESS_DECIMAL_PLACES = 1  # decimal places for progress percentage

@@ -1057,6 +1057,19 @@
                             <small class="form-text text-muted">Choose format compatible with your VR headset</small>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">VR Headset Preset <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Select your VR headset for optimized resolution and FOV settings. Choosing a preset will automatically configure resolution and field of view."></i></label>
+                            <select class="form-select" id="headsetPreset">
+                                <option value="none" selected>None (Manual Settings)</option>
+                                <option value="quest-3">Meta Quest 3 (2064×2208 per eye, 110° FOV)</option>
+                                <option value="quest-2">Meta Quest 2 (1832×1920 per eye, 100° FOV)</option>
+                                <option value="psvr2">PlayStation VR2 (2000×2040 per eye, 110° FOV)</option>
+                                <option value="pico-4">Pico 4 (2160×2160 per eye, 105° FOV)</option>
+                                <option value="valve-index">Valve Index (1440×1600 per eye, 130° FOV)</option>
+                                <option value="vive-pro-2">HTC Vive Pro 2 (2448×2448 per eye, 120° FOV)</option>
+                            </select>
+                            <small class="form-text text-muted">Applies optimized settings for your headset</small>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">VR Resolution per Eye <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Square formats (1:1): Optimized for VR headsets. Example: 1080×1080 per eye = 2160×1080 total (SBS) or 1080×2160 (Over-Under). 16:9 formats: Standard widescreen, preserves original content aspect ratio naturally."></i></label>
                             <select class="form-select" id="vrResolution">
                                 <option value="auto" selected>Auto (Match Source Quality & Aspect)</option>
@@ -1631,6 +1644,41 @@
             .finally(() => {
                 btn.style.pointerEvents = '';  // Re-enable
             });
+        });
+
+        // VR Headset Preset selection handler
+        const headsetPresets = {
+            'quest-3': { width: 2064, height: 2208, fov: 110 },
+            'quest-2': { width: 1832, height: 1920, fov: 100 },
+            'psvr2': { width: 2000, height: 2040, fov: 110 },
+            'pico-4': { width: 2160, height: 2160, fov: 105 },
+            'valve-index': { width: 1440, height: 1600, fov: 130 },
+            'vive-pro-2': { width: 2448, height: 2448, fov: 120 }
+        };
+
+        document.getElementById('headsetPreset').addEventListener('change', function() {
+            const preset = this.value;
+
+            if (preset === 'none') {
+                // Reset to auto/default settings
+                document.getElementById('vrResolution').value = 'auto';
+                document.getElementById('fisheyeFov').value = '180';
+                document.getElementById('customResolution').value = '';
+                return;
+            }
+
+            const settings = headsetPresets[preset];
+            if (settings) {
+                // Set custom resolution
+                const customRes = `${settings.width}x${settings.height}`;
+                document.getElementById('customResolution').value = customRes;
+                document.getElementById('vrResolution').value = 'custom';
+
+                // Set FOV
+                document.getElementById('fisheyeFov').value = settings.fov;
+
+                console.log(`Applied ${preset} preset: ${customRes}, ${settings.fov}° FOV`);
+            }
         });
 
         // Display video info
