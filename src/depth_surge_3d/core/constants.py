@@ -51,7 +51,7 @@ DEFAULT_SETTINGS = {
     "fisheye_projection": "stereographic",
     "fisheye_fov": 180,  # degrees - full 180° dome view
     "crop_factor": 1.0,  # default: 1.0 (no crop)
-    "fisheye_crop_factor": 0.7,  # default: 0.7 (zoom into center ~70%, crops ~20% each edge to hide distortion)
+    "fisheye_crop_factor": 0.7,  # default: 0.7 (zoom into center ~70%)
     "hole_fill_quality": "fast",
     "super_sample": "auto",
     "target_fps": 60,
@@ -61,6 +61,13 @@ DEFAULT_SETTINGS = {
     "apply_distortion": True,
     "output_dir": "./output",
     "experimental_frame_interpolation": False,  # Experimental feature with quality warnings
+    # Optical Flow Motion Compensation Settings
+    "enable_optical_flow": False,  # Enable motion-compensated depth refinement
+    "optical_flow_model": "auto",  # "auto" (UniMatch→RAFT), "unimatch", "raft", "off"
+    "optical_flow_blend": 0.5,  # Blend weight: 0.0=original depth, 1.0=flow-compensated
+    "optical_flow_scene_cut_threshold": 30.0,  # Scene cut threshold
+    "optical_flow_occlusion_threshold": 1.0,  # Occlusion threshold (pixels)
+    "optical_flow_detect_occlusions": False,  # Enable occlusion detection
 }
 
 # VR resolution configurations (per eye)
@@ -302,6 +309,9 @@ VALIDATION_RANGES = {
         2.0,
     ),  # ratio for fisheye crop (1.0=inscribed circle, <1.0=zoom in, >1.0=show curved edges)
     "target_fps": (1, 120),  # fps
+    "optical_flow_blend": (0.0, 1.0),  # blend weight (0-100%)
+    "optical_flow_scene_cut_threshold": (5.0, 100.0),  # scene cut threshold
+    "optical_flow_occlusion_threshold": (0.1, 10.0),  # occlusion threshold
 }
 
 # Depth processing chunk sizes and resolution thresholds

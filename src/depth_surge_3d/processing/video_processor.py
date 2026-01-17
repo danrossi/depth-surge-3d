@@ -16,6 +16,8 @@ import time
 import torch
 
 from ..models.video_depth_estimator import VideoDepthEstimator
+from ..models.optical_flow_estimator import create_optical_flow_estimator
+from ..models.motion_compensator import MotionCompensator
 from ..utils.progress import create_progress_tracker
 from ..utils.path_utils import (
     calculate_frame_range,
@@ -281,6 +283,113 @@ class VideoProcessor:
             print()
         return depth_maps
 
+    def _step_motion_compensate_depth(
+        self,
+        frame_files: list[Path],
+        depth_maps: np.ndarray,
+        settings: dict[str, Any],
+        progress_tracker,
+    ) -> np.ndarray:
+        """Execute Step 2.5: Apply optical flow motion compensation (optional)."""
+        if not settings.get("enable_optical_flow", False):
+            # Optical flow disabled, return original depth maps
+            return depth_maps
+
+        print("Step 2.5/7: Applying optical flow motion compensation...")
+        progress_tracker.update_progress(
+            "Optical flow compensation",
+            phase="depth_refinement",
+            frame_num=0,
+            step_name="Motion Compensation",
+            step_progress=0,
+            step_total=len(depth_maps),
+        )
+
+        try:
+            # Load optical flow estimator
+            flow_model = settings.get("optical_flow_model", "auto")
+            flow_estimator = create_optical_flow_estimator(
+                model_type=flow_model, device=self.depth_estimator.device
+            )
+
+            # Create motion compensator
+            motion_compensator = MotionCompensator(flow_estimator)
+
+            # Load frames for optical flow (need RGB data)
+            frames = self._load_frames_for_flow(frame_files, settings, progress_tracker)
+
+            # Get optical flow parameters
+            blend_alpha = settings.get("optical_flow_blend", 0.5)
+            detect_occlusions = settings.get("optical_flow_detect_occlusions", False)
+            scene_cut_threshold = settings.get("optical_flow_scene_cut_threshold", 30.0)
+
+            # Apply motion compensation
+            print(
+                f"  -> Compensating {len(depth_maps)} depth maps "
+                f"(blend={blend_alpha:.1%}, model={flow_model})"
+            )
+            compensated_depths = motion_compensator.compensate_depth_batch(
+                frames,
+                depth_maps,
+                blend_alpha=blend_alpha,
+                detect_occlusions=detect_occlusions,
+                scene_cut_threshold=scene_cut_threshold,
+            )
+
+            # Get compensation statistics
+            stats = motion_compensator.get_compensation_stats(depth_maps, compensated_depths)
+            print(
+                f"  -> Temporal consistency improvement: " f"{stats['improvement_percentage']:.1f}%"
+            )
+
+            # Free memory
+            del frames
+            del flow_estimator
+            if hasattr(self, "depth_estimator"):
+                self._clear_gpu_memory()
+
+            # Mark step complete
+            from ..utils.console import step_complete
+
+            duration = (
+                progress_tracker.get_step_duration()
+                if hasattr(progress_tracker, "get_step_duration")
+                else 0
+            )
+            print(step_complete(f"Motion compensation complete in {duration:.2f}s\n"))
+
+            return compensated_depths
+
+        except Exception as e:
+            print(f"Warning: Optical flow compensation failed: {e}")
+            print("  -> Continuing with original depth maps\n")
+            return depth_maps
+
+    def _load_frames_for_flow(
+        self, frame_files: list[Path], settings: dict[str, Any], progress_tracker
+    ) -> np.ndarray:
+        """Load frames for optical flow computation (no super-sampling)."""
+        frames_list = []
+
+        for i, frame_file in enumerate(frame_files):
+            image = cv2.imread(str(frame_file))
+            if image is None:
+                raise ValueError(f"Failed to load frame: {frame_file}")
+            frames_list.append(image)
+
+            # Update progress periodically
+            if i % 10 == 0:
+                progress_tracker.update_progress(
+                    "Loading frames for optical flow",
+                    phase="depth_refinement",
+                    frame_num=i,
+                    step_name="Motion Compensation",
+                    step_progress=i,
+                    step_total=len(frame_files),
+                )
+
+        return np.array(frames_list)
+
     def _step_load_frames(
         self, frame_files: list[Path], settings: dict[str, Any], progress_tracker
     ) -> np.ndarray | None:
@@ -338,7 +447,8 @@ class VideoProcessor:
                 ):
                     print("Step 4/7: Skipping stereo pair creation (stereo pairs already exist)")
                     print(
-                        f"  Found {len(existing_left):04d} left and {len(existing_right):04d} right frames"
+                        f"  Found {len(existing_left):04d} left "
+                        f"and {len(existing_right):04d} right frames"
                     )
                     print(saved_to(f"  Location: {left_dir} & {right_dir}\n"))
                     if progress_tracker:
@@ -411,7 +521,8 @@ class VideoProcessor:
                 ):
                     print("Step 5/7: Skipping fisheye distortion (distorted frames already exist)")
                     print(
-                        f"  Found {len(existing_left):04d} distorted left and {len(existing_right):04d} distorted right frames"
+                        f"  Found {len(existing_left):04d} distorted left "
+                        f"and {len(existing_right):04d} distorted right frames"
                     )
                     print(saved_to(f"  Location: {left_distorted_dir} & {right_distorted_dir}\n"))
                     if progress_tracker:
@@ -455,7 +566,8 @@ class VideoProcessor:
         if settings["keep_intermediates"] and "left_distorted" in directories:
             print(
                 saved_to(
-                    f"Saved to: {directories['left_distorted']} & {directories['right_distorted']}\n"
+                    f"Saved to: {directories['left_distorted']} "
+                    f"& {directories['right_distorted']}\n"
                 )
             )
         else:
@@ -593,6 +705,11 @@ class VideoProcessor:
             if depth_maps is None:
                 return False
 
+            # Step 2.5: Apply optical flow motion compensation (optional)
+            depth_maps = self._step_motion_compensate_depth(
+                frame_files, depth_maps, settings, progress_tracker
+            )
+
             # Step 3: Load frames for stereo processing
             frames = self._step_load_frames(frame_files, settings, progress_tracker)
             if frames is None:
@@ -667,7 +784,8 @@ class VideoProcessor:
             "-i",
             video_path,
             "-vf",
-            f"select=between(n\\,{start_frame}\\,{end_frame - 1}),hwdownload,format=nv12,format=rgb24",
+            f"select=between(n\\,{start_frame}\\,{end_frame - 1}),"
+            f"hwdownload,format=nv12,format=rgb24",
             "-pix_fmt",
             "rgb24",
             "-frames:v",
@@ -1228,7 +1346,8 @@ class VideoProcessor:
 
             if len(left_files) != len(right_files):
                 print(
-                    f"Warning: Mismatched frame count: {len(left_files)} left, {len(right_files)} right"
+                    f"Warning: Mismatched frame count: "
+                    f"{len(left_files)} left, {len(right_files)} right"
                 )
 
             # Process each frame pair
