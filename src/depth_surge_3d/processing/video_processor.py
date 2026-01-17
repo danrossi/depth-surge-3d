@@ -33,6 +33,7 @@ from ..utils.depth_cache import (
     save_depth_maps_to_cache,
     get_cache_size,
 )
+from ..utils.vram_manager import calculate_optimal_chunk_size, get_vram_info
 from ..utils.image_processing import (
     resize_image,
     depth_to_disparity,
@@ -807,7 +808,9 @@ class VideoProcessor:
     def _determine_chunk_params(
         self, frame_w: int, frame_h: int, depth_resolution: str = "auto"
     ) -> tuple[int, int]:
-        """Determine chunk size and input size based on frame resolution and settings.
+        """Determine chunk size and input size based on frame resolution, VRAM, and model.
+
+        Uses smart VRAM-based sizing to maximize throughput without OOM errors.
 
         Args:
             frame_w: Frame width in pixels
@@ -820,30 +823,72 @@ class VideoProcessor:
         megapixels = (frame_h * frame_w) / 1_000_000
         print(f"  Frame resolution: {frame_w}x{frame_h} ({megapixels:.1f}MP)")
 
-        # If specific resolution is requested, use it
+        # Get VRAM info for smart sizing
+        vram_info = get_vram_info()
+        if vram_info["total"] > 0:
+            print(
+                f"  GPU VRAM: {vram_info['available']:.1f}GB available / {vram_info['total']:.1f}GB total"
+            )
+
+        # Determine input size (depth resolution)
         if depth_resolution != "auto":
             try:
                 input_size = int(depth_resolution)
-                chunk_size = self._get_chunk_size_for_resolution(input_size)
-                print(f"  Using manual depth resolution: {input_size}px (chunk size: {chunk_size})")
-                return chunk_size, input_size
+                print(f"  Using manual depth resolution: {input_size}px")
             except (ValueError, TypeError):
                 print(f"  Warning: Invalid depth_resolution '{depth_resolution}', using auto")
-
-        # Auto mode: Match depth resolution to actual frame size (or slightly higher for quality)
-        # Never exceed source frame resolution - upscaling depth beyond that is pointless
-        if megapixels > MEGAPIXELS_4K:  # >8MP (4K is ~8.3MP)
-            # For 4K, use full resolution - DA3 can handle it
-            return CHUNK_SIZE_4K, min(max(frame_w, frame_h), RESOLUTION_4K)
-        elif megapixels > MEGAPIXELS_1080P:  # >2MP (1080p is 2.1MP)
-            # For 1080p, match the resolution exactly
-            return CHUNK_SIZE_1080P, min(max(frame_w, frame_h), RESOLUTION_1080P)
-        elif megapixels > MEGAPIXELS_720P:  # >1MP (720p is 0.9MP)
-            # For 720p, match the resolution
-            return CHUNK_SIZE_1080P_MANUAL, min(max(frame_w, frame_h), RESOLUTION_720P)
+                input_size = self._auto_determine_input_size(frame_w, frame_h, megapixels)
         else:
-            # For SD, match actual resolution (usually 480p or 576p)
-            return CHUNK_SIZE_SD, min(max(frame_w, frame_h), RESOLUTION_SD)
+            input_size = self._auto_determine_input_size(frame_w, frame_h, megapixels)
+
+        # Get model information
+        model_version = "v3" if hasattr(self.depth_estimator, "model_type") else "v2"
+        model_size = (
+            self.depth_estimator.get_model_size()
+            if hasattr(self.depth_estimator, "get_model_size")
+            else "base"
+        )
+
+        # Calculate optimal chunk size based on VRAM
+        if vram_info["total"] > 0:
+            # Use smart VRAM-based sizing
+            chunk_size = calculate_optimal_chunk_size(
+                frame_w, frame_h, input_size, model_version, model_size
+            )
+            print(
+                f"  Smart VRAM sizing: {chunk_size} frames/chunk (model: {model_version}/{model_size})"
+            )
+        else:
+            # Fallback to fixed sizing (CPU or no CUDA)
+            chunk_size = self._get_chunk_size_for_resolution(input_size)
+            print(f"  CPU mode: {chunk_size} frames/chunk")
+
+        return chunk_size, input_size
+
+    def _auto_determine_input_size(self, frame_w: int, frame_h: int, megapixels: float) -> int:
+        """Determine input size automatically based on frame resolution.
+
+        Args:
+            frame_w: Frame width
+            frame_h: Frame height
+            megapixels: Frame megapixels
+
+        Returns:
+            Optimal input size for depth estimation
+        """
+        # Auto mode: Match depth resolution to actual frame size
+        # Never exceed source frame resolution - upscaling depth is pointless
+        if megapixels > MEGAPIXELS_4K:  # >8MP (4K is ~8.3MP)
+            input_size = min(max(frame_w, frame_h), RESOLUTION_4K)
+        elif megapixels > MEGAPIXELS_1080P:  # >2MP (1080p is 2.1MP)
+            input_size = min(max(frame_w, frame_h), RESOLUTION_1080P)
+        elif megapixels > MEGAPIXELS_720P:  # >1MP (720p is 0.9MP)
+            input_size = min(max(frame_w, frame_h), RESOLUTION_720P)
+        else:
+            input_size = min(max(frame_w, frame_h), RESOLUTION_SD)
+
+        print(f"  Auto depth resolution: {input_size}px")
+        return input_size
 
     def _clear_gpu_memory(self) -> None:
         """Clear GPU cache and print available memory."""
