@@ -9,6 +9,11 @@ from src.depth_surge_3d.utils.image_processing import (
     create_vr_frame,
     validate_image_array,
     calculate_image_statistics,
+    create_shifted_image,
+    calculate_fisheye_coordinates,
+    apply_fisheye_distortion,
+    apply_fisheye_square_crop,
+    hole_fill_image,
 )
 
 
@@ -379,3 +384,207 @@ class TestCalculateImageStatistics:
 
         assert stats["channels"] == 4
         assert "alpha_mean" in stats
+
+
+class TestCreateShiftedImage:
+    """Test create_shifted_image function."""
+
+    def test_shift_left(self):
+        """Test left shift direction."""
+        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        disparity_map = np.full((100, 100), 5.0)
+
+        shifted = create_shifted_image(image, disparity_map, direction="left")
+
+        assert shifted.shape == image.shape
+        assert shifted.dtype == image.dtype
+
+    def test_shift_right(self):
+        """Test right shift direction."""
+        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        disparity_map = np.full((100, 100), 5.0)
+
+        shifted = create_shifted_image(image, disparity_map, direction="right")
+
+        assert shifted.shape == image.shape
+        assert shifted.dtype == image.dtype
+
+    def test_shift_grayscale(self):
+        """Test shifting grayscale image."""
+        image = np.random.randint(0, 255, (100, 100), dtype=np.uint8)
+        disparity_map = np.full((100, 100), 5.0)
+
+        shifted = create_shifted_image(image, disparity_map, direction="left")
+
+        assert shifted.shape == image.shape
+        assert len(shifted.shape) == 2
+
+    def test_shift_varying_disparity(self):
+        """Test with varying disparity values."""
+        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        # Create gradient disparity map
+        disparity_map = np.linspace(0, 10, 10000).reshape(100, 100)
+
+        shifted = create_shifted_image(image, disparity_map, direction="left")
+
+        assert shifted.shape == image.shape
+
+
+class TestCalculateFisheyeCoordinates:
+    """Test calculate_fisheye_coordinates function."""
+
+    def test_stereographic_projection(self):
+        """Test stereographic projection mapping."""
+        x_map, y_map = calculate_fisheye_coordinates(200, 200, 90.0, "stereographic")
+
+        assert x_map.shape == (200, 200)
+        assert y_map.shape == (200, 200)
+        assert x_map.dtype == np.float32
+        assert y_map.dtype == np.float32
+        # Coordinates should be within bounds
+        assert np.all(x_map >= 0) and np.all(x_map < 200)
+        assert np.all(y_map >= 0) and np.all(y_map < 200)
+
+    def test_equidistant_projection(self):
+        """Test equidistant projection mapping."""
+        x_map, y_map = calculate_fisheye_coordinates(200, 200, 90.0, "equidistant")
+
+        assert x_map.shape == (200, 200)
+        assert y_map.shape == (200, 200)
+
+    def test_equisolid_projection(self):
+        """Test equisolid projection mapping."""
+        x_map, y_map = calculate_fisheye_coordinates(200, 200, 90.0, "equisolid")
+
+        assert x_map.shape == (200, 200)
+        assert y_map.shape == (200, 200)
+
+    def test_orthogonal_projection(self):
+        """Test orthogonal projection mapping."""
+        x_map, y_map = calculate_fisheye_coordinates(200, 200, 90.0, "orthogonal")
+
+        assert x_map.shape == (200, 200)
+        assert y_map.shape == (200, 200)
+
+    def test_different_fov(self):
+        """Test with different field of view values."""
+        x_map_90, y_map_90 = calculate_fisheye_coordinates(200, 200, 90.0, "stereographic")
+        x_map_180, y_map_180 = calculate_fisheye_coordinates(200, 200, 180.0, "stereographic")
+
+        # Different FOV should produce different mappings
+        assert not np.array_equal(x_map_90, x_map_180)
+
+
+class TestApplyFisheyeDistortion:
+    """Test apply_fisheye_distortion function."""
+
+    def test_apply_distortion_basic(self):
+        """Test basic fisheye distortion application."""
+        image = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+
+        distorted = apply_fisheye_distortion(image, fov_degrees=90.0)
+
+        assert distorted.shape == image.shape
+        assert distorted.dtype == image.dtype
+
+    def test_apply_distortion_grayscale(self):
+        """Test fisheye distortion on grayscale image."""
+        image = np.random.randint(0, 255, (200, 200), dtype=np.uint8)
+
+        distorted = apply_fisheye_distortion(image, fov_degrees=90.0)
+
+        assert distorted.shape == image.shape
+
+    def test_different_projection_types(self):
+        """Test different projection types."""
+        image = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+
+        for proj_type in ["stereographic", "equidistant", "equisolid", "orthogonal"]:
+            distorted = apply_fisheye_distortion(image, fov_degrees=90.0, projection_type=proj_type)
+            assert distorted.shape == image.shape
+
+
+class TestApplyFisheyeSquareCrop:
+    """Test apply_fisheye_square_crop function."""
+
+    def test_basic_crop(self):
+        """Test basic fisheye square cropping."""
+        image = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+
+        cropped = apply_fisheye_square_crop(image, 100, 100)
+
+        assert cropped.shape == (100, 100, 3)
+
+    def test_crop_with_factor(self):
+        """Test cropping with different crop factors."""
+        image = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+
+        cropped_full = apply_fisheye_square_crop(image, 100, 100, crop_factor=1.0)
+        cropped_half = apply_fisheye_square_crop(image, 100, 100, crop_factor=0.5)
+
+        assert cropped_full.shape == (100, 100, 3)
+        assert cropped_half.shape == (100, 100, 3)
+
+    def test_crop_rectangular_image(self):
+        """Test cropping on rectangular image."""
+        image = np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8)
+
+        cropped = apply_fisheye_square_crop(image, 150, 150)
+
+        assert cropped.shape == (150, 150, 3)
+
+
+class TestHoleFillImage:
+    """Test hole_fill_image function."""
+
+    def test_no_holes(self):
+        """Test image with no holes returns unchanged."""
+        image = np.random.randint(1, 255, (100, 100, 3), dtype=np.uint8)
+
+        filled = hole_fill_image(image)
+
+        # Should return original image if no holes
+        np.testing.assert_array_equal(filled, image)
+
+    def test_fill_with_fast_method(self):
+        """Test hole filling with fast method."""
+        image = np.random.randint(1, 255, (100, 100, 3), dtype=np.uint8)
+        # Create some holes (black pixels)
+        image[40:60, 40:60] = 0
+
+        filled = hole_fill_image(image, method="fast")
+
+        assert filled.shape == image.shape
+        # Holes should be filled (no longer all black)
+        assert not np.all(filled[40:60, 40:60] == 0)
+
+    def test_fill_with_advanced_method(self):
+        """Test hole filling with advanced method."""
+        image = np.random.randint(1, 255, (100, 100, 3), dtype=np.uint8)
+        # Create some holes
+        image[40:60, 40:60] = 0
+
+        filled = hole_fill_image(image, method="advanced")
+
+        assert filled.shape == image.shape
+        assert not np.all(filled[40:60, 40:60] == 0)
+
+    def test_fill_grayscale(self):
+        """Test hole filling on grayscale image."""
+        image = np.random.randint(1, 255, (100, 100), dtype=np.uint8)
+        image[40:60, 40:60] = 0
+
+        filled = hole_fill_image(image, method="fast")
+
+        assert filled.shape == image.shape
+        assert len(filled.shape) == 2
+
+    def test_fill_with_custom_mask(self):
+        """Test hole filling with custom mask."""
+        image = np.random.randint(1, 255, (100, 100, 3), dtype=np.uint8)
+        mask = np.zeros((100, 100), dtype=np.uint8)
+        mask[40:60, 40:60] = 1  # Mark region as hole
+
+        filled = hole_fill_image(image, mask=mask, method="fast")
+
+        assert filled.shape == image.shape
