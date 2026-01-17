@@ -344,3 +344,17 @@ class TestCreateVideoDepthEstimatorDA3:
         """Test factory function with None model name uses default."""
         estimator = create_video_depth_estimator_da3(model_name=None)
         assert estimator.model_name == DEFAULT_DA3_MODEL
+
+
+class TestEstimateDepthBatch:
+    """Test estimate_depth_batch method."""
+
+    def test_estimate_depth_batch_model_not_loaded(self):
+        """Test that estimate_depth_batch raises error when model not loaded."""
+        import pytest
+
+        estimator = VideoDepthEstimatorDA3(device="cpu")
+        frames = np.zeros((2, 480, 640, 3), dtype=np.uint8)
+
+        with pytest.raises(RuntimeError, match="Model not loaded"):
+            estimator.estimate_depth_batch(frames)
