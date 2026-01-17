@@ -40,6 +40,21 @@ from ..core.constants import (
     DEPTH_MAP_SCALE_FLOAT,
     PROGRESS_UPDATE_INTERVAL,
     DEFAULT_FALLBACK_FPS,
+    RESOLUTION_4K,
+    RESOLUTION_1440P,
+    RESOLUTION_1080P,
+    RESOLUTION_720P,
+    RESOLUTION_SD,
+    MEGAPIXELS_4K,
+    MEGAPIXELS_1080P,
+    MEGAPIXELS_720P,
+    CHUNK_SIZE_4K,
+    CHUNK_SIZE_1440P,
+    CHUNK_SIZE_1080P,
+    CHUNK_SIZE_1080P_MANUAL,
+    CHUNK_SIZE_720P,
+    CHUNK_SIZE_SD,
+    CHUNK_SIZE_SMALL,
 )
 from ..utils.console import (
     step_complete,
@@ -738,16 +753,16 @@ class VideoProcessor:
         Returns:
             Chunk size for processing
         """
-        if input_size >= 2160:
-            return 4
-        elif input_size >= 1440:
-            return 6
-        elif input_size >= 1080:
-            return 12
-        elif input_size >= 720:
-            return 16
+        if input_size >= RESOLUTION_4K:
+            return CHUNK_SIZE_4K
+        elif input_size >= RESOLUTION_1440P:
+            return CHUNK_SIZE_1440P
+        elif input_size >= RESOLUTION_1080P:
+            return CHUNK_SIZE_1080P_MANUAL
+        elif input_size >= RESOLUTION_720P:
+            return CHUNK_SIZE_720P
         else:
-            return 32
+            return CHUNK_SIZE_SMALL
 
     def _determine_chunk_params(
         self, frame_w: int, frame_h: int, depth_resolution: str = "auto"
@@ -777,18 +792,18 @@ class VideoProcessor:
 
         # Auto mode: Match depth resolution to actual frame size (or slightly higher for quality)
         # Never exceed source frame resolution - upscaling depth beyond that is pointless
-        if megapixels > 8.0:  # >8MP (4K is ~8.3MP)
+        if megapixels > MEGAPIXELS_4K:  # >8MP (4K is ~8.3MP)
             # For 4K, use full resolution - DA3 can handle it
-            return 4, min(max(frame_w, frame_h), 2160)
-        elif megapixels > 2.0:  # >2MP (1080p is 2.1MP)
+            return CHUNK_SIZE_4K, min(max(frame_w, frame_h), RESOLUTION_4K)
+        elif megapixels > MEGAPIXELS_1080P:  # >2MP (1080p is 2.1MP)
             # For 1080p, match the resolution exactly
-            return 8, min(max(frame_w, frame_h), 1080)
-        elif megapixels > 1.0:  # >1MP (720p is 0.9MP)
+            return CHUNK_SIZE_1080P, min(max(frame_w, frame_h), RESOLUTION_1080P)
+        elif megapixels > MEGAPIXELS_720P:  # >1MP (720p is 0.9MP)
             # For 720p, match the resolution
-            return 12, min(max(frame_w, frame_h), 720)
+            return CHUNK_SIZE_1080P_MANUAL, min(max(frame_w, frame_h), RESOLUTION_720P)
         else:
             # For SD, match actual resolution (usually 480p or 576p)
-            return 24, min(max(frame_w, frame_h), 640)
+            return CHUNK_SIZE_SD, min(max(frame_w, frame_h), RESOLUTION_SD)
 
     def _clear_gpu_memory(self) -> None:
         """Clear GPU cache and print available memory."""

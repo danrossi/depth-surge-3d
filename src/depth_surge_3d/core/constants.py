@@ -303,3 +303,25 @@ VALIDATION_RANGES = {
     ),  # ratio for fisheye crop (1.0=inscribed circle, <1.0=zoom in, >1.0=show curved edges)
     "target_fps": (1, 120),  # fps
 }
+
+# Depth processing chunk sizes and resolution thresholds
+# Resolution thresholds in pixels (for depth map processing)
+RESOLUTION_4K = 2160
+RESOLUTION_1440P = 1440
+RESOLUTION_1080P = 1080
+RESOLUTION_720P = 720
+RESOLUTION_SD = 640
+
+# Megapixel thresholds for auto-resolution detection
+MEGAPIXELS_4K = 8.0  # 4K is ~8.3MP
+MEGAPIXELS_1080P = 2.0  # 1080p is ~2.1MP
+MEGAPIXELS_720P = 1.0  # 720p is ~0.9MP
+
+# Chunk sizes for different resolutions (frames per batch for DA3)
+CHUNK_SIZE_4K = 4  # 2160p and above
+CHUNK_SIZE_1440P = 6  # 1440p
+CHUNK_SIZE_1080P = 8  # Auto mode for 1080p source
+CHUNK_SIZE_1080P_MANUAL = 12  # Manual 1080p depth setting
+CHUNK_SIZE_720P = 16  # 720p and manual settings
+CHUNK_SIZE_SD = 24  # Auto mode for SD sources
+CHUNK_SIZE_SMALL = 32  # Very small resolutions
