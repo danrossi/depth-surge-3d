@@ -255,6 +255,77 @@ class VideoProcessor:
         print(saved_to(f"Saved to: {directories.get('frames', 'N/A')}\n"))
         return frame_files
 
+    def _try_load_existing_depth_maps(
+        self, frame_files: list[Path], directories: dict[str, Path], progress_tracker
+    ) -> np.ndarray | None:
+        """Try to load existing depth maps from output directory."""
+        depth_maps_dir = directories.get("depth_maps")
+        if not depth_maps_dir or not depth_maps_dir.exists():
+            return None
+
+        existing_depth_maps = sorted(list(depth_maps_dir.glob("*.png")))
+        if not existing_depth_maps or len(existing_depth_maps) < len(frame_files):
+            return None
+
+        print("Step 2/7: Skipping depth map generation (depth maps already exist)")
+        print(f"  Found {len(existing_depth_maps):04d} existing depth maps")
+        print(saved_to(f"  Location: {depth_maps_dir}\n"))
+
+        # Load existing depth maps
+        depth_maps = []
+        for depth_file in existing_depth_maps[: len(frame_files)]:
+            depth_img = cv2.imread(str(depth_file), cv2.IMREAD_GRAYSCALE)
+            if depth_img is not None:
+                depth_maps.append(depth_img.astype(float) / DEPTH_MAP_SCALE_FLOAT)
+
+        if len(depth_maps) == len(frame_files):
+            if progress_tracker:
+                progress_tracker.update_progress(
+                    "Skipped depth map generation (already exists)",
+                    phase="depth_estimation",
+                    frame_num=len(depth_maps),
+                    step_name="Depth Map Generation",
+                    step_progress=len(depth_maps),
+                    step_total=len(depth_maps),
+                )
+            return np.array(depth_maps)
+        return None
+
+    def _try_load_cached_depth_maps(
+        self, video_path: str, settings: dict[str, Any], num_frames: int, progress_tracker
+    ) -> np.ndarray | None:
+        """Try to load depth maps from global cache."""
+        cached_depths = get_cached_depth_maps(video_path, settings, num_frames)
+        if cached_depths is None:
+            return None
+
+        print("Step 2/7: Loading depth maps from global cache")
+        print(f"  Loaded {len(cached_depths):04d} cached depth maps")
+        cache_entries, cache_size_bytes = get_cache_size()
+        cache_size_mb = cache_size_bytes / (1024 * 1024)
+        print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
+
+        if progress_tracker:
+            progress_tracker.update_progress(
+                "Loaded depth maps from cache",
+                phase="depth_estimation",
+                frame_num=len(cached_depths),
+                step_name="Depth Map Generation",
+                step_progress=len(cached_depths),
+                step_total=len(cached_depths),
+            )
+        return cached_depths
+
+    def _save_to_depth_cache(
+        self, video_path: str, settings: dict[str, Any], depth_maps: np.ndarray
+    ):
+        """Save depth maps to global cache."""
+        if save_depth_maps_to_cache(video_path, settings, depth_maps):
+            cache_entries, cache_size_bytes = get_cache_size()
+            cache_size_mb = cache_size_bytes / (1024 * 1024)
+            print("  Cached depth maps for future use")
+            print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
+
     def _step_generate_depth_maps(
         self,
         frame_files: list[Path],
@@ -265,51 +336,20 @@ class VideoProcessor:
         """Execute Step 2: Generate depth maps."""
         # Check if depth maps already exist (only if keep_intermediates is enabled)
         if settings.get("keep_intermediates") and "depth_maps" in directories:
-            depth_maps_dir = directories["depth_maps"]
-            if depth_maps_dir.exists():
-                existing_depth_maps = sorted(list(depth_maps_dir.glob("*.png")))
-                if existing_depth_maps and len(existing_depth_maps) >= len(frame_files):
-                    print("Step 2/7: Skipping depth map generation (depth maps already exist)")
-                    print(f"  Found {len(existing_depth_maps):04d} existing depth maps")
-                    print(saved_to(f"  Location: {depth_maps_dir}\n"))
-                    # Load existing depth maps
-                    depth_maps = []
-                    for depth_file in existing_depth_maps[: len(frame_files)]:
-                        depth_img = cv2.imread(str(depth_file), cv2.IMREAD_GRAYSCALE)
-                        if depth_img is not None:
-                            depth_maps.append(depth_img.astype(float) / DEPTH_MAP_SCALE_FLOAT)
-                    if len(depth_maps) == len(frame_files):
-                        if progress_tracker:
-                            progress_tracker.update_progress(
-                                "Skipped depth map generation (already exists)",
-                                phase="depth_estimation",
-                                frame_num=len(depth_maps),
-                                step_name="Depth Map Generation",
-                                step_progress=len(depth_maps),
-                                step_total=len(depth_maps),
-                            )
-                        return np.array(depth_maps)
+            existing = self._try_load_existing_depth_maps(
+                frame_files, directories, progress_tracker
+            )
+            if existing is not None:
+                return existing
 
         # Check global depth cache (works across different output batches)
         video_path = settings.get("video_path")
         if video_path:
-            cached_depths = get_cached_depth_maps(video_path, settings, len(frame_files))
-            if cached_depths is not None:
-                print("Step 2/7: Loading depth maps from global cache")
-                print(f"  Loaded {len(cached_depths):04d} cached depth maps")
-                cache_entries, cache_size_bytes = get_cache_size()
-                cache_size_mb = cache_size_bytes / (1024 * 1024)
-                print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
-                if progress_tracker:
-                    progress_tracker.update_progress(
-                        "Loaded depth maps from cache",
-                        phase="depth_estimation",
-                        frame_num=len(cached_depths),
-                        step_name="Depth Map Generation",
-                        step_progress=len(cached_depths),
-                        step_total=len(cached_depths),
-                    )
-                return cached_depths
+            cached = self._try_load_cached_depth_maps(
+                video_path, settings, len(frame_files), progress_tracker
+            )
+            if cached is not None:
+                return cached
 
         print("Step 2/7: Generating depth maps (temporal consistency enabled)...")
         print("  Using memory-efficient chunked processing...")
@@ -341,13 +381,8 @@ class VideoProcessor:
             print()
 
         # Save to global cache for future runs
-        video_path = settings.get("video_path")
         if video_path and depth_maps is not None:
-            if save_depth_maps_to_cache(video_path, settings, depth_maps):
-                cache_entries, cache_size_bytes = get_cache_size()
-                cache_size_mb = cache_size_bytes / (1024 * 1024)
-                print("  Cached depth maps for future use")
-                print(f"  Cache: {cache_entries} entries, {cache_size_mb:.1f} MB total\n")
+            self._save_to_depth_cache(video_path, settings, depth_maps)
 
         return depth_maps
 

@@ -311,6 +311,48 @@ def create_vr_frame(left_image: np.ndarray, right_image: np.ndarray, vr_format: 
         return np.hstack([left_image, right_image])
 
 
+def _create_hole_mask(image: np.ndarray) -> np.ndarray:
+    """Create binary mask for holes (black pixels) in image."""
+    if len(image.shape) == 3:
+        mask = np.all(image == 0, axis=2).astype(np.uint8)
+    else:
+        mask = (image == 0).astype(np.uint8)
+
+    # Dilate mask slightly to catch edge artifacts
+    kernel = np.ones((3, 3), np.uint8)
+    mask = cv2.dilate(mask, kernel, iterations=1)
+    return mask
+
+
+def _calculate_adaptive_radius(mask: np.ndarray) -> int:
+    """Calculate adaptive inpaint radius based on largest hole size."""
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+
+    if num_labels <= 1:  # Only background
+        return 3
+
+    # Find largest hole (excluding background at index 0)
+    max_area = max(stats[i, cv2.CC_STAT_AREA] for i in range(1, num_labels))
+
+    # Adaptive radius: larger for bigger holes
+    # sqrt gives good scaling: 100px hole -> ~10px radius
+    return max(3, min(int(np.sqrt(max_area) * 0.5), 15))
+
+
+def _apply_high_quality_inpaint(image: np.ndarray, mask: np.ndarray, radius: int) -> np.ndarray:
+    """Apply high quality multi-pass inpainting."""
+    # First pass: Navier-Stokes for structure
+    filled = cv2.inpaint(image, mask, radius, cv2.INPAINT_NS)
+
+    # Second pass: TELEA on remaining artifacts
+    residual_mask = _create_hole_mask(filled)
+    if np.any(residual_mask):
+        filled = cv2.inpaint(filled, residual_mask, radius // 2, cv2.INPAINT_TELEA)
+
+    # Third pass: Bilateral filter to smooth inpainted regions while preserving edges
+    return cv2.bilateralFilter(filled, 5, 50, 50)
+
+
 def hole_fill_image(
     image: np.ndarray, mask: Optional[np.ndarray] = None, method: str = "fast"
 ) -> np.ndarray:
@@ -326,66 +368,22 @@ def hole_fill_image(
         Image with filled holes
     """
     if mask is None:
-        # Auto-detect holes (black pixels) with morphological operations
-        if len(image.shape) == 3:
-            mask = np.all(image == 0, axis=2).astype(np.uint8)
-        else:
-            mask = (image == 0).astype(np.uint8)
-
-        # Dilate mask slightly to catch edge artifacts
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.dilate(mask, kernel, iterations=1)
+        mask = _create_hole_mask(image)
 
     if not np.any(mask):
         return image  # No holes to fill
 
-    # Calculate adaptive inpaint radius based on largest hole size
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-
-    if num_labels <= 1:  # Only background
-        return image
-
-    # Find largest hole (excluding background at index 0)
-    max_area = 0
-    for i in range(1, num_labels):
-        area = stats[i, cv2.CC_STAT_AREA]
-        if area > max_area:
-            max_area = area
-
-    # Adaptive radius: larger for bigger holes
-    # sqrt gives good scaling: 100px hole -> ~10px radius
-    adaptive_radius = max(3, min(int(np.sqrt(max_area) * 0.5), 15))
+    adaptive_radius = _calculate_adaptive_radius(mask)
 
     if method == "high":
-        # High quality: Multi-pass inpainting with edge preservation
-        # First pass: Navier-Stokes for structure
-        filled = cv2.inpaint(image, mask, adaptive_radius, cv2.INPAINT_NS)
-
-        # Second pass: TELEA on remaining artifacts
-        # Detect any remaining holes after first pass
-        if len(filled.shape) == 3:
-            residual_mask = np.all(filled == 0, axis=2).astype(np.uint8)
-        else:
-            residual_mask = (filled == 0).astype(np.uint8)
-
-        if np.any(residual_mask):
-            filled = cv2.inpaint(filled, residual_mask, adaptive_radius // 2, cv2.INPAINT_TELEA)
-
-        # Third pass: Bilateral filter to smooth inpainted regions while preserving edges
-        filled = cv2.bilateralFilter(filled, 5, 50, 50)
-
+        return _apply_high_quality_inpaint(image, mask, adaptive_radius)
     elif method == "advanced":
         # Advanced: Navier-Stokes with adaptive radius
         filled = cv2.inpaint(image, mask, adaptive_radius, cv2.INPAINT_NS)
-
-        # Light bilateral filtering for better blending
-        filled = cv2.bilateralFilter(filled, 3, 30, 30)
-
+        return cv2.bilateralFilter(filled, 3, 30, 30)
     else:
         # Fast: TELEA with smaller radius
-        filled = cv2.inpaint(image, mask, max(adaptive_radius // 2, 3), cv2.INPAINT_TELEA)
-
-    return filled
+        return cv2.inpaint(image, mask, max(adaptive_radius // 2, 3), cv2.INPAINT_TELEA)
 
 
 def validate_image_array(image: np.ndarray) -> bool:
