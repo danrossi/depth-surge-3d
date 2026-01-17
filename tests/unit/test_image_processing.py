@@ -1,7 +1,6 @@
 """Unit tests for image processing utilities."""
 
 import numpy as np
-import pytest
 from src.depth_surge_3d.utils.image_processing import (
     normalize_depth_map,
     depth_to_disparity,

@@ -1,6 +1,5 @@
 """Unit tests for file operations utilities."""
 
-import pytest
 from src.depth_surge_3d.utils.file_operations import (
     parse_time_string,
     calculate_frame_range,
