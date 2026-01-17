@@ -352,17 +352,27 @@ def create_optical_flow_estimator(
         estimator = _try_load_unimatch(device, required=(model_type == "unimatch"))
         if estimator is not None:
             return estimator
+        # Warn about fallback when auto mode
+        if model_type == "auto":
+            print("⚠️  UniMatch not available, falling back to RAFT...")
 
     # Try RAFT-Large
     if model_type in ("auto", "raft", "raft_large"):
         estimator = _try_load_raft_large(device)
         if estimator is not None:
+            if model_type == "auto":
+                print("✓ Using RAFT-Large as fallback optical flow model")
             return estimator
+        # Warn about further fallback
+        if model_type == "auto":
+            print("⚠️  RAFT-Large failed, trying RAFT-Small...")
 
     # Try RAFT-Small as final fallback
     if model_type in ("auto", "raft_small"):
         estimator = _try_load_raft_small(device)
         if estimator is not None:
+            if model_type == "auto":
+                print("✓ Using RAFT-Small as final fallback optical flow model")
             return estimator
 
     # No model available

@@ -898,6 +898,64 @@
 </small>
                     </div>
 
+                    <!-- Step 2.5: Motion Compensation (Optical Flow) -->
+                    <div class="pipeline-step">
+                        <div class="step-header">
+                            <span class="step-number">2.5</span>
+                            <h6 class="step-title">Motion Compensation (Optional)</h6>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableOpticalFlow">
+                                <label class="form-check-label" for="enableOpticalFlow">
+                                    <strong>Enable Optical Flow Motion Compensation</strong>
+                                </label>
+                                <small class="text-muted d-block ms-4">
+                                    <i class="fas fa-chart-line"></i> Improves temporal consistency using motion analysis between frames<br>
+                                    <i class="fas fa-clock"></i> Processing overhead: +10-20% time, +2-4GB VRAM
+                                </small>
+                            </div>
+
+                            <div id="opticalFlowSettings" style="display: none;">
+                                <div class="mb-3">
+                                    <label class="form-label">Flow Model <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Auto tries UniMatch first (MIT license, best quality), falls back to RAFT (PyTorch built-in). Both analyze motion between frames to improve depth consistency."></i></label>
+                                    <select class="form-select" id="opticalFlowModel">
+                                        <option value="auto" selected>Auto (UniMatch → RAFT fallback)</option>
+                                        <option value="unimatch">UniMatch (Best quality, MIT)</option>
+                                        <option value="raft">RAFT-Large (PyTorch built-in)</option>
+                                        <option value="raft_small">RAFT-Small (Fastest)</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-robot"></i> UniMatch: Newer unified model (better quality)<br>
+                                        <i class="fas fa-bolt"></i> RAFT: Recurrent all-pairs field transforms
+                                    </small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Blend Weight: <span id="opticalFlowBlendValue">50%</span> <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Controls how much to blend the motion-compensated depth with the original. 0% = original only (no compensation), 50% = balanced, 100% = fully compensated."></i></label>
+                                    <input type="range" class="form-range" id="opticalFlowBlend"
+                                           min="0" max="100" step="5" value="50">
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-arrow-left"></i> <strong>0%</strong> = Original depth only |
+                                        <strong>50%</strong> = Balanced (default) |
+                                        <strong>100%</strong> = Fully compensated <i class="fas fa-arrow-right"></i>
+                                    </small>
+                                </div>
+
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="opticalFlowDetectOcclusions">
+                                    <label class="form-check-label" for="opticalFlowDetectOcclusions">
+                                        Detect Occlusions (Forward-Backward Consistency)
+                                    </label>
+                                    <small class="text-muted d-block ms-4">
+                                        <i class="fas fa-eye"></i> More accurate handling of occluded regions, but slower
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step-indicator">Warps previous depth using optical flow for smoother transitions</div>
+                    </div>
+
                     <!-- Step 3: Stereo Pair Generation -->
                     <div class="pipeline-step">
                         <div class="step-header">
@@ -1100,6 +1158,7 @@
                                 <i class="fas fa-info-circle"></i> Not AI-based, won't alter visual style. May show motion artifacts.
                             </small>
                         </div>
+
                         <div class="step-indicator">Final output: Calculated at runtime</div>
                     </div>
 
@@ -1723,7 +1782,11 @@
                 crop_factor: document.getElementById('cropFactor') ? parseFloat(document.getElementById('cropFactor').value) : 0.7,
                 fisheye_crop_factor: parseFloat(document.getElementById('fisheyeCropFactor').value),
                 hole_fill_quality: document.getElementById('holeFillQuality').value,
-                experimental_frame_interpolation: document.getElementById('experimentalFrameInterpolation').checked
+                experimental_frame_interpolation: document.getElementById('experimentalFrameInterpolation').checked,
+                enable_optical_flow: document.getElementById('enableOpticalFlow').checked,
+                optical_flow_model: document.getElementById('opticalFlowModel').value,
+                optical_flow_blend: parseFloat(document.getElementById('opticalFlowBlend').value) / 100.0,
+                optical_flow_detect_occlusions: document.getElementById('opticalFlowDetectOcclusions').checked
             };
             
             fetch('/process', {
@@ -2223,7 +2286,22 @@
                 distortionK2Options.style.display = 'none';
             }
         });
-        
+
+        // Toggle optical flow settings
+        document.getElementById('enableOpticalFlow').addEventListener('change', function() {
+            const opticalFlowSettings = document.getElementById('opticalFlowSettings');
+            if (this.checked) {
+                opticalFlowSettings.style.display = 'block';
+            } else {
+                opticalFlowSettings.style.display = 'none';
+            }
+        });
+
+        // Update optical flow blend percentage display
+        document.getElementById('opticalFlowBlend').addEventListener('input', function() {
+            document.getElementById('opticalFlowBlendValue').textContent = this.value + '%';
+        });
+
         // Update range info when time inputs change
         document.getElementById('startTime').addEventListener('input', updateRangeInfo);
         document.getElementById('endTime').addEventListener('input', updateRangeInfo);
@@ -2341,19 +2419,19 @@
 
         // Settings persistence functions
         function saveSettings() {
-            const SETTINGS_VERSION = 2; // Must match version in loadSettings()
+            const SETTINGS_VERSION = 3; // Must match version in loadSettings()
             const settings = {
                 version: SETTINGS_VERSION,
                 // Time range
                 startTime: document.getElementById('startTime').value,
                 endTime: document.getElementById('endTime').value,
-                
+
                 // VR settings
                 vrFormat: document.getElementById('vrFormat').value,
                 vrResolution: document.getElementById('vrResolution').value,
                 baseline: document.getElementById('baseline').value,
                 focalLength: document.getElementById('focalLength').value,
-                
+
                 // Video enhancement
                 resolution: document.getElementById('resolution').value,
                 targetFps: document.getElementById('targetFps').value,
@@ -2374,16 +2452,22 @@
                 cropFactor: document.getElementById('cropFactor').value,
                 fisheyeCropFactor: document.getElementById('fisheyeCropFactor').value,
                 holeFillQuality: document.getElementById('holeFillQuality').value,
-                
+
                 // Experimental features
-                experimentalFrameInterpolation: document.getElementById('experimentalFrameInterpolation').checked
+                experimentalFrameInterpolation: document.getElementById('experimentalFrameInterpolation').checked,
+
+                // Optical flow
+                enableOpticalFlow: document.getElementById('enableOpticalFlow').checked,
+                opticalFlowModel: document.getElementById('opticalFlowModel').value,
+                opticalFlowBlend: document.getElementById('opticalFlowBlend').value,
+                opticalFlowDetectOcclusions: document.getElementById('opticalFlowDetectOcclusions').checked
             };
-            
+
             localStorage.setItem('stereoProjectorSettings', JSON.stringify(settings));
         }
         
         function loadSettings() {
-            const SETTINGS_VERSION = 2; // Increment to force reset of old settings
+            const SETTINGS_VERSION = 3; // Increment to force reset of old settings
             const savedSettings = localStorage.getItem('stereoProjectorSettings');
             if (!savedSettings) return;
 
@@ -2396,7 +2480,7 @@
                     localStorage.removeItem('stereoProjectorSettings');
                     return; // Will use defaults from HTML
                 }
-                
+
                 // Apply settings to form elements
                 Object.keys(settings).forEach(key => {
                     if (key === 'version') return; // Skip version metadata
@@ -2409,12 +2493,18 @@
                         }
                     }
                 });
-                
+
                 // Trigger change events for elements that have dependencies
                 if (settings.applyDistortion !== undefined) {
                     document.getElementById('applyDistortion').dispatchEvent(new Event('change'));
                 }
-                
+                if (settings.enableOpticalFlow !== undefined) {
+                    document.getElementById('enableOpticalFlow').dispatchEvent(new Event('change'));
+                }
+                if (settings.opticalFlowBlend !== undefined) {
+                    document.getElementById('opticalFlowBlend').dispatchEvent(new Event('input'));
+                }
+
             } catch (error) {
                 console.error('Error loading settings:', error);
             }
@@ -2443,9 +2533,13 @@
                 fisheyeFov: '180',
                 cropFactor: '1.0',
                 fisheyeCropFactor: '0.7',
-                holeFillQuality: 'fast'
+                holeFillQuality: 'fast',
+                enableOpticalFlow: false,
+                opticalFlowModel: 'auto',
+                opticalFlowBlend: '50',
+                opticalFlowDetectOcclusions: false
             };
-            
+
             Object.keys(defaults).forEach(key => {
                 const element = document.getElementById(key);
                 if (element) {
@@ -2456,13 +2550,15 @@
                     }
                 }
             });
-            
+
             // Trigger change events
             document.getElementById('applyDistortion').dispatchEvent(new Event('change'));
-            
+            document.getElementById('enableOpticalFlow').dispatchEvent(new Event('change'));
+            document.getElementById('opticalFlowBlend').dispatchEvent(new Event('input'));
+
             // Clear saved settings
             localStorage.removeItem('stereoProjectorSettings');
-            
+
             alert('Settings reset to defaults');
         }
         
@@ -2470,11 +2566,14 @@
         function setupAutoSave() {
             const settingsElements = [
                 'startTime', 'endTime', 'vrFormat', 'vrResolution', 'baseline', 'focalLength',
-                'resolution', 'targetFps', 'superSample', 'device', 'modelSize', 'depthModelType', 'depthResolution', 'videoEncoder',
-                'preserveAudio', 'keepIntermediates', 'applyDistortion', 'fisheyeProjection', 'fisheyeFov', 'cropFactor',
-                'fisheyeCropFactor', 'holeFillQuality', 'experimentalFrameInterpolation'
+                'resolution', 'targetFps', 'superSample', 'device', 'modelSize',
+                'depthModelType', 'depthResolution', 'videoEncoder',
+                'preserveAudio', 'keepIntermediates', 'applyDistortion', 'fisheyeProjection',
+                'fisheyeFov', 'cropFactor', 'fisheyeCropFactor', 'holeFillQuality',
+                'experimentalFrameInterpolation', 'enableOpticalFlow', 'opticalFlowModel',
+                'opticalFlowBlend', 'opticalFlowDetectOcclusions'
             ];
-            
+
             settingsElements.forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {

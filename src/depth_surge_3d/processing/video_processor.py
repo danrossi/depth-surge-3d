@@ -328,6 +328,12 @@ class VideoProcessor:
                 f"  -> Compensating {len(depth_maps)} depth maps "
                 f"(blend={blend_alpha:.1%}, model={flow_model})"
             )
+
+            # Estimate optical flow first (for visualization/debugging)
+            print("  -> Computing optical flow between frames...")
+            flow_fields = flow_estimator.estimate_flow_batch(frames)
+
+            # Apply compensation
             compensated_depths = motion_compensator.compensate_depth_batch(
                 frames,
                 depth_maps,
@@ -336,11 +342,30 @@ class VideoProcessor:
                 scene_cut_threshold=scene_cut_threshold,
             )
 
-            # Get compensation statistics
+            # Get detailed compensation statistics
             stats = motion_compensator.get_compensation_stats(depth_maps, compensated_depths)
+            print("\n  📊 Motion Compensation Statistics:")
+            print(f"     Original temporal variance:     {stats['original_temporal_variance']:.6f}")
             print(
-                f"  -> Temporal consistency improvement: " f"{stats['improvement_percentage']:.1f}%"
+                f"     Compensated temporal variance:  "
+                f"{stats['compensated_temporal_variance']:.6f}"
             )
+            print(f"     Improvement:                    {stats['improvement_percentage']:.1f}%")
+            print(f"     Mean absolute change per pixel: {stats['mean_absolute_change']:.6f}")
+
+            # Save intermediate outputs if keeping intermediates
+            if settings.get("keep_intermediates", True):
+                self._save_optical_flow_intermediates(
+                    settings["output_dir"],
+                    flow_fields,
+                    depth_maps,
+                    compensated_depths,
+                    stats,
+                )
+            else:
+                print(
+                    "  ℹ️  Skipping intermediate flow visualization " "(keep_intermediates=False)\n"
+                )
 
             # Free memory
             del frames
@@ -389,6 +414,117 @@ class VideoProcessor:
                 )
 
         return np.array(frames_list)
+
+    def _save_optical_flow_intermediates(
+        self,
+        output_dir: str,
+        flow_fields: np.ndarray,
+        original_depths: np.ndarray,
+        compensated_depths: np.ndarray,
+        stats: dict,
+    ):
+        """Save optical flow visualizations and depth comparisons."""
+        import json
+
+        flow_dir = Path(output_dir) / "optical_flow"
+        flow_dir.mkdir(exist_ok=True)
+
+        print(f"  💾 Saving optical flow intermediates to {flow_dir.name}/")
+
+        # Save statistics to JSON
+        stats_file = flow_dir / "statistics.json"
+        with open(stats_file, "w") as f:
+            json.dump(
+                {
+                    "original_temporal_variance": float(stats["original_temporal_variance"]),
+                    "compensated_temporal_variance": float(stats["compensated_temporal_variance"]),
+                    "improvement_percentage": float(stats["improvement_percentage"]),
+                    "mean_absolute_change": float(stats["mean_absolute_change"]),
+                    "num_frames": int(len(original_depths)),
+                },
+                f,
+                indent=2,
+            )
+
+        # Save sample flow visualizations (every 30th frame to avoid clutter)
+        flow_vis_dir = flow_dir / "flow_visualizations"
+        flow_vis_dir.mkdir(exist_ok=True)
+
+        sample_indices = range(0, len(flow_fields), min(30, max(1, len(flow_fields) // 10)))
+        for idx in sample_indices:
+            flow_vis = self._visualize_optical_flow(flow_fields[idx])
+            cv2.imwrite(str(flow_vis_dir / f"flow_{idx:04d}.png"), flow_vis)
+
+        # Save sample depth comparisons (original vs compensated)
+        depth_comp_dir = flow_dir / "depth_comparisons"
+        depth_comp_dir.mkdir(exist_ok=True)
+
+        for idx in sample_indices:
+            # Create side-by-side comparison
+            orig_vis = self._depth_to_colormap(original_depths[idx])
+            comp_vis = self._depth_to_colormap(compensated_depths[idx])
+
+            # Stack horizontally
+            comparison = np.hstack([orig_vis, comp_vis])
+
+            # Add labels
+            h, w = comparison.shape[:2]
+            cv2.putText(
+                comparison,
+                "Original",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (255, 255, 255),
+                2,
+            )
+            cv2.putText(
+                comparison,
+                "Compensated",
+                (w // 2 + 10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (255, 255, 255),
+                2,
+            )
+
+            cv2.imwrite(str(depth_comp_dir / f"comparison_{idx:04d}.png"), comparison)
+
+        print(
+            f"     ✓ Saved {len(list(sample_indices))} flow visualizations "
+            f"and depth comparisons\n"
+        )
+
+    def _visualize_optical_flow(self, flow: np.ndarray) -> np.ndarray:
+        """Convert optical flow to HSV color visualization."""
+        h, w = flow.shape[:2]
+        hsv = np.zeros((h, w, 3), dtype=np.uint8)
+
+        # Calculate magnitude and angle
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+        # Hue represents direction
+        hsv[..., 0] = ang * 180 / np.pi / 2
+
+        # Saturation is full
+        hsv[..., 1] = 255
+
+        # Value represents magnitude
+        hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+        # Convert to BGR
+        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        return bgr
+
+    def _depth_to_colormap(self, depth: np.ndarray) -> np.ndarray:
+        """Convert depth map to colorized visualization."""
+        # Normalize to 0-255
+        depth_normalized = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX)
+        depth_uint8 = depth_normalized.astype(np.uint8)
+
+        # Apply colormap (turbo is perceptually uniform)
+        colorized = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_TURBO)
+        return colorized
 
     def _step_load_frames(
         self, frame_files: list[Path], settings: dict[str, Any], progress_tracker
