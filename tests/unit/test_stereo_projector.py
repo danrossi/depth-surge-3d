@@ -439,3 +439,167 @@ class TestResolveSettings:
 
         assert resolved is not None
         assert "per_eye_width" in resolved
+
+
+class TestSuperSampleResolution:
+    """Test determine_super_sample_resolution method."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_none(self, mock_create):
+        """Test super sample with 'none' mode."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1280, 720, "none")
+
+        assert width == 1280
+        assert height == 720
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_1080p(self, mock_create):
+        """Test super sample with '1080p' mode."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1280, 720, "1080p")
+
+        assert width == 1920
+        assert height == 1080
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_4k(self, mock_create):
+        """Test super sample with '4k' mode."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1280, 720, "4k")
+
+        assert width == 3840
+        assert height == 2160
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_auto_720p_source(self, mock_create):
+        """Test super sample auto mode with 720p source."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1280, 720, "auto")
+
+        # 720p should upscale to 1080p
+        assert width == 1920
+        assert height == 1080
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_auto_1080p_source(self, mock_create):
+        """Test super sample auto mode with 1080p source."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1920, 1080, "auto")
+
+        # 1080p should upscale to 4K
+        assert width == 3840
+        assert height == 2160
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_auto_4k_source(self, mock_create):
+        """Test super sample auto mode with 4K source."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(3840, 2160, "auto")
+
+        # 4K should keep original resolution
+        assert width == 3840
+        assert height == 2160
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_super_sample_invalid_mode(self, mock_create):
+        """Test super sample with invalid mode."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_super_sample_resolution(1280, 720, "invalid")
+
+        # Invalid mode should keep original resolution
+        assert width == 1280
+        assert height == 720
+
+
+class TestVROutputResolution:
+    """Test determine_vr_output_resolution method."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_vr_output_auto_side_by_side(self, mock_create):
+        """Test VR output resolution with auto and side-by-side format."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_vr_output_resolution(1920, 1080, "auto", "side_by_side")
+
+        # Auto should use original as per-eye, side-by-side doubles width
+        assert width == 3840
+        assert height == 1080
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_vr_output_auto_over_under(self, mock_create):
+        """Test VR output resolution with auto and over-under format."""
+        mock_create.return_value = MagicMock()
+        projector = StereoProjector(device="cpu")
+
+        width, height = projector.determine_vr_output_resolution(1920, 1080, "auto", "over_under")
+
+        # Auto should use original as per-eye, over-under doubles height
+        assert width == 1920
+        assert height == 2160
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_vr_output_manual_resolution(self, mock_create):
+        """Test VR output resolution with manual resolution."""
+        mock_create.return_value = MagicMock()
+
+        projector = StereoProjector(device="cpu")
+
+        # Use a known resolution preset
+        width, height = projector.determine_vr_output_resolution(
+            1920, 1080, "16x9-1080p", "side_by_side"
+        )
+
+        # 16x9-1080p is 1920x1080 per eye, side-by-side doubles width
+        assert width == 3840
+        assert height == 1080
+
+
+class TestModelDelegation:
+    """Test model delegation methods."""
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_get_model_info(self, mock_create):
+        """Test get_model_info delegation."""
+        mock_estimator = MagicMock()
+        mock_estimator.get_model_info.return_value = {
+            "loaded": True,
+            "encoder": "vitl",
+        }
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+        info = projector.get_model_info()
+
+        assert info["loaded"] is True
+        assert info["encoder"] == "vitl"
+        mock_estimator.get_model_info.assert_called_once()
+
+    @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
+    def test_unload_model(self, mock_create):
+        """Test unload_model delegation."""
+        mock_estimator = MagicMock()
+        mock_create.return_value = mock_estimator
+
+        projector = StereoProjector(device="cpu")
+        projector._model_loaded = True
+
+        projector.unload_model()
+
+        assert projector._model_loaded is False
+        mock_estimator.unload_model.assert_called_once()
