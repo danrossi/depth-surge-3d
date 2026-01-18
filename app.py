@@ -984,7 +984,9 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
             elif audio_path.exists():
                 print(f"Audio successfully extracted: {audio_path}")
             else:
-                print(f"Warning: Audio extraction reported success but file not found at: {audio_path}")
+                print(
+                    f"Warning: Audio extraction reported success but file not found at: {audio_path}"
+                )
                 audio_path = None
         else:
             # No audio stream in video

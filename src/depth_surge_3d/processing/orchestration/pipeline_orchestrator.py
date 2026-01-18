@@ -262,9 +262,7 @@ class ProcessingOrchestrator:
                             f"Step 4: Applied {settings['fisheye_projection']} fisheye distortion"
                         )
                     )
-                    self._print_saved_to(
-                        directories.get("left_distorted"), "Distorted left frames"
-                    )
+                    self._print_saved_to(directories.get("left_distorted"), "Distorted left frames")
                     self._print_saved_to(
                         directories.get("right_distorted"), "Distorted right frames"
                     )
@@ -328,7 +326,7 @@ class ProcessingOrchestrator:
                 settings["vr_format"],
                 settings["vr_resolution"],
             )
-            print(step_complete(f"Step 8: Created final video"))
+            print(step_complete("Step 8: Created final video"))
             self._print_saved_to(directories["base"], f"Final output: {output_filename}")
 
         # Finalize and cleanup
