@@ -258,7 +258,7 @@ class VideoDepthEstimator:
         chunk_size = DEPTH_MODEL_CHUNK_SIZE
         overlap = self.temporal_window_overlap  # Overlap frames for smooth transitions
 
-        all_depths = []
+        all_depths: list[Any] = []
         num_frames = len(frames)
 
         for chunk_start in range(0, num_frames, chunk_size - overlap):
