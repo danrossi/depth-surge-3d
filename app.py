@@ -202,6 +202,29 @@ def get_video_info(video_path: str | Path) -> dict[str, Any] | None:
         cap.release()
 
 
+def find_source_video(directory: Path) -> Path | None:
+    """
+    Find the source video file in an output directory.
+
+    Looks for video files excluding processed outputs (those with _3D_ in name).
+
+    Args:
+        directory: Directory to search
+
+    Returns:
+        Path to source video, or None if not found
+    """
+    video_extensions = [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]
+
+    for ext in video_extensions:
+        for video_file in directory.glob(f"*{ext}"):
+            # Skip processed output files (they contain _3D_)
+            if "_3D_" not in video_file.name:
+                return video_file
+
+    return None
+
+
 def get_system_info() -> dict[str, Any]:
     """Get system information including GPU details"""
     import torch  # Import here to avoid early CUDA initialization
@@ -803,8 +826,8 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     output_dir = Path(app.config["OUTPUT_FOLDER"]) / f"{int(time.time())}_{video_name}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save video to output directory as "original_video.ext"
-    video_path = output_dir / f"original_video{file_ext}"
+    # Save video to output directory preserving original filename
+    video_path = output_dir / original_filename
     file.save(video_path)
 
     # Get video information
@@ -892,17 +915,12 @@ def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     if not output_dir.exists():
         return jsonify({"error": "Output directory not found"}), 404
 
-    # Find the original video file in output directory
-    video_path = None
-    for ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
-        candidate = output_dir / f"original_video{ext}"
-        if candidate.exists():
-            video_path = candidate
-            break
+    # Find the source video file in output directory
+    video_path = find_source_video(output_dir)
 
     if not video_path:
         return (
-            jsonify({"error": "Original video file not found in output directory"}),
+            jsonify({"error": "Source video file not found in output directory"}),
             404,
         )
 
@@ -956,18 +974,13 @@ def resume_processing():
     if not output_path.exists():
         return jsonify({"error": "Output directory does not exist"}), 404
 
-    # Look for original video in the output directory itself
-    original_video = None
-    for ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
-        candidate = output_path / f"original_video{ext}"
-        if candidate.exists():
-            original_video = candidate
-            break
+    # Look for source video in the output directory
+    source_video = find_source_video(output_path)
 
-    if not original_video:
+    if not source_video:
         return (
             jsonify(
-                {"error": "Could not find original video file in output directory for resuming"}
+                {"error": "Could not find source video file in output directory for resuming"}
             ),
             404,
         )
@@ -980,7 +993,7 @@ def resume_processing():
 
     # Start processing in background using socketio's method for proper context handling
     thread = socketio.start_background_task(
-        process_video_async, session_id, original_video, settings, output_path
+        process_video_async, session_id, source_video, settings, output_path
     )
     current_processing["thread"] = thread
 
@@ -1049,14 +1062,10 @@ def detect_resumable_jobs():
             if not batch_dir.is_dir():
                 continue
 
-            # Check for original video file
-            has_video = False
-            for ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
-                if (batch_dir / f"original_video{ext}").exists():
-                    has_video = True
-                    break
+            # Check for source video file
+            source_video = find_source_video(batch_dir)
 
-            if not has_video:
+            if not source_video:
                 continue
 
             # Check if processing is incomplete (has frames but no final video)
@@ -1182,16 +1191,15 @@ def analyze_batch_directory(batch_path):
                 except Exception:
                     pass
 
-    # Check for pre-extracted audio file or original video in batch directory
+    # Check for pre-extracted audio file or source video in batch directory
     audio_file = batch_path / "original_audio.flac"
     if audio_file.exists():
         analysis["has_audio"] = True
     else:
-        # Check for original video file
-        for video_ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
-            if (batch_path / f"original_video{video_ext}").exists():
-                analysis["has_audio"] = True
-                break
+        # Check for source video file
+        source_video = find_source_video(batch_path)
+        if source_video:
+            analysis["has_audio"] = True
 
     # Generate settings summary
     if analysis["vr_format"] != "unknown" and analysis["resolution"] != "unknown":
@@ -1274,15 +1282,10 @@ def create_video_from_batch(batch_path, settings):
             cmd.extend(["-i", str(audio_file)])
             cmd.extend(["-c:a", "aac", "-map", "0:v:0", "-map", "1:a:0"])
         else:
-            # Fallback: look for original video in batch directory
-            video_file = None
-            for ext in [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]:
-                candidate = batch_path / f"original_video{ext}"
-                if candidate.exists():
-                    video_file = candidate
-                    break
-            if video_file:
-                cmd.extend(["-i", str(video_file)])
+            # Fallback: look for source video in batch directory
+            source_video = find_source_video(batch_path)
+            if source_video:
+                cmd.extend(["-i", str(source_video)])
                 cmd.extend(["-c:a", "aac", "-map", "0:v:0", "-map", "1:a:0"])
 
     cmd.append(str(output_path))
