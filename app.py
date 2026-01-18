@@ -1648,9 +1648,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Only print startup message if not already printed by run_ui.sh
+    # Always print banner on startup
+    print_banner()
+
+    # Only print additional startup message if not already printed by run_ui.sh
     if not os.environ.get("DEPTH_SURGE_UI_SCRIPT"):
-        print_banner()
         print("Starting Depth Surge 3D Web UI...")
         print(f"Navigate to http://localhost:{args.port}")
 
