@@ -2284,7 +2284,9 @@
             // Hide progress panel and clean up session state
             document.querySelector('.progress-container').style.display = 'none';
             document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('processBtn').style.display = 'inline-block';
+            const processBtn = document.getElementById('processBtn');
+            processBtn.style.display = 'inline-block';
+            processBtn.disabled = false;  // Enable for new processing
             hideCurrentBatchDirectory();
             currentSessionId = null;
 
