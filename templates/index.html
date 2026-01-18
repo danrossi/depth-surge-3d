@@ -2403,7 +2403,7 @@
             document.getElementById('stopBtn').style.display = 'none';
             const processBtn = document.getElementById('processBtn');
             processBtn.style.display = 'inline-block';
-            // Note: processBtn remains disabled until new video is uploaded (handled in modal dismiss)
+            processBtn.disabled = true;  // Disable until new video is uploaded
             hideCurrentBatchDirectory();
             currentSessionId = null;
 
