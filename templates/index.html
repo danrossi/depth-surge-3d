@@ -618,6 +618,35 @@
         .nav-tabs .nav-link i {
             margin-right: 6px;
         }
+
+        /* Live Preview Styles */
+        .preview-item img {
+            display: block;
+            object-fit: contain;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+        }
+
+        /* Hide broken image icon and show placeholder */
+        .preview-item img:not([src]),
+        .preview-item img[src=""] {
+            opacity: 0;
+        }
+
+        /* Placeholder for empty preview images */
+        .preview-item {
+            position: relative;
+        }
+
+        .preview-item img[src=""]::before {
+            content: "Waiting for frames...";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
     </style>
 </head>
 <body style="padding-top: 0;">
@@ -1245,7 +1274,37 @@
                         <div class="step-indicator">Final output: Calculated at runtime</div>
                     </div>
 
-
+                    <!-- Live Preview Settings -->
+                    <div class="pipeline-step" style="border-top: 2px dashed var(--bs-border-color); margin-top: 2rem; padding-top: 1.5rem;">
+                        <div class="step-header">
+                            <span class="step-number"><i class="fas fa-eye"></i></span>
+                            <h6 class="step-title">Live Preview Settings</h6>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enableLivePreview" checked>
+                                <label class="form-check-label" for="enableLivePreview">
+                                    Enable Live Preview During Processing
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle"></i> Shows real-time depth maps, stereo pairs, and VR frames while processing<br>
+                                <i class="fas fa-network-wired"></i> Bandwidth usage: ~25-100 KB/sec (negligible performance impact)
+                            </small>
+                        </div>
+                        <div class="mb-3" id="previewFrequencySettings">
+                            <label class="form-label">Preview Update Frequency <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="How often preview images update. Lower = more frequent updates but higher bandwidth. Higher = less frequent but smoother processing."></i></label>
+                            <input type="range" class="form-range" id="previewUpdateInterval" min="1" max="5" step="0.5" value="2">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">1s (Fast)</small>
+                                <small><strong id="previewUpdateIntervalValue">2.0</strong> seconds</small>
+                                <small class="text-muted">5s (Slow)</small>
+                            </div>
+                            <small class="form-text text-muted" style="margin-top: 0.5rem; display: block;">
+                                <i class="fas fa-clock"></i> Default (2s): Good balance between freshness and bandwidth
+                            </small>
+                        </div>
+                    </div>
 
                     <!-- Process Button -->
                     <div class="text-center mt-3">
@@ -2073,7 +2132,9 @@
                 fisheye_crop_factor: parseFloat(document.getElementById('fisheyeCropFactor').value),
                 hole_fill_quality: document.getElementById('holeFillQuality').value,
                 upscale_model: document.getElementById('applyUpscaling').checked ? document.getElementById('upscaleModel').value : 'none',
-                experimental_frame_interpolation: document.getElementById('experimentalFrameInterpolation').checked
+                experimental_frame_interpolation: document.getElementById('experimentalFrameInterpolation').checked,
+                enable_live_preview: document.getElementById('enableLivePreview').checked,
+                preview_update_interval: parseFloat(document.getElementById('previewUpdateInterval').value)
             };
             
             fetch('/process', {
@@ -3065,6 +3126,21 @@
         // Update temporal window overlap value display
         document.getElementById('temporalWindowOverlap').addEventListener('input', function() {
             document.getElementById('temporalWindowOverlapValue').textContent = this.value;
+        });
+
+        // Update preview update interval value display
+        document.getElementById('previewUpdateInterval').addEventListener('input', function() {
+            document.getElementById('previewUpdateIntervalValue').textContent = parseFloat(this.value).toFixed(1);
+        });
+
+        // Toggle preview frequency settings based on checkbox
+        document.getElementById('enableLivePreview').addEventListener('change', function() {
+            const frequencySettings = document.getElementById('previewFrequencySettings');
+            if (this.checked) {
+                frequencySettings.style.display = 'block';
+            } else {
+                frequencySettings.style.display = 'none';
+            }
         });
 
         // Initialize on page load

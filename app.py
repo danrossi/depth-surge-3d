@@ -238,7 +238,14 @@ def get_system_info() -> dict[str, Any]:
 class ProgressCallback:
     """Enhanced callback class to track processing progress for both serial and batch modes"""
 
-    def __init__(self, session_id: str, total_frames: int, processing_mode: str = "serial") -> None:
+    def __init__(
+        self,
+        session_id: str,
+        total_frames: int,
+        processing_mode: str = "serial",
+        enable_live_preview: bool = True,
+        preview_update_interval: float = PREVIEW_UPDATE_INTERVAL,
+    ) -> None:
         self.session_id = session_id
         self.total_frames = total_frames
         self.processing_mode = processing_mode
@@ -250,8 +257,9 @@ class ProgressCallback:
         self.start_time = time.time()  # For ETA calculation
 
         # Preview tracking
+        self.enable_live_preview = enable_live_preview
         self.last_preview_time = 0
-        self.preview_interval = PREVIEW_UPDATE_INTERVAL
+        self.preview_interval = preview_update_interval
         self.preview_downscale_width = PREVIEW_DOWNSCALE_WIDTH
 
         # Step tracking (used for all modes)
@@ -286,6 +294,10 @@ class ProgressCallback:
             frame_type: Type of frame ("depth_map", "stereo_left", "stereo_right", "vr_frame")
             frame_number: Frame number being processed
         """
+        # Check if preview is enabled
+        if not self.enable_live_preview:
+            return
+
         current_time = time.time()
 
         # Throttle preview updates
@@ -600,7 +612,15 @@ def process_video_async(
         expected_frames = end_frame - start_frame
 
         processing_mode = settings.get("processing_mode", "serial")
-        callback = ProgressCallback(session_id, expected_frames, processing_mode)
+        enable_live_preview = settings.get("enable_live_preview", True)
+        preview_update_interval = settings.get("preview_update_interval", PREVIEW_UPDATE_INTERVAL)
+        callback = ProgressCallback(
+            session_id,
+            expected_frames,
+            processing_mode,
+            enable_live_preview,
+            preview_update_interval,
+        )
 
         # Give client time to join the session room before starting processing
         socketio.sleep(INITIAL_PROCESSING_DELAY)

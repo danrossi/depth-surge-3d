@@ -50,9 +50,11 @@
   - Skips re-computing if video and depth settings unchanged
 
 ### 🎨 UI/UX Improvements
-- [ ] Real-time preview while processing
-  - Show current frame being processed
-  - Display depth map visualization
+- [x] Real-time preview while processing ✓ (2026-01-18)
+  - Shows current depth maps, stereo pairs, and VR frames via websocket
+  - Configurable update frequency (1-5 seconds, default: 2s)
+  - Toggle on/off in UI settings
+  - Bandwidth-optimized: ~25-100 KB/sec, negligible performance impact
 
 ### 🎛️ Advanced Settings
 - [ ] Fine-tune stereo parameters per VR headset
