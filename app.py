@@ -88,6 +88,36 @@ def vprint(*args: Any, **kwargs: Any) -> None:
         print(*args, **kwargs)
 
 
+def print_banner() -> None:
+    """Print Depth Surge 3D banner with lime gradient"""
+    # ANSI color codes for lime gradient (dark green -> bright lime)
+    colors = [
+        "\033[38;5;22m",  # Dark green
+        "\033[38;5;28m",  # Medium green
+        "\033[38;5;34m",  # Green
+        "\033[38;5;40m",  # Bright green
+        "\033[38;5;46m",  # Lime
+        "\033[38;5;82m",  # Bright lime
+        "\033[38;5;118m",  # Very bright lime
+    ]
+    reset = "\033[0m"
+
+    # ASCII art banner
+    banner_lines = [
+        "░█▀▄░█▀▀░█▀█░▀█▀░█░█░░█▀▀░█░█░█▀▄░█▀▀░█▀▀░░▀▀█░█▀▄",
+        "░█░█░█▀▀░█▀▀░░█░░█▀█░░▀▀█░█░█░█▀▄░█░█░█▀▀░░░▀▄░█░█",
+        "░▀▀░░▀▀▀░▀░░░░▀░░▀░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░░▀▀░░▀▀░",
+    ]
+
+    print()
+    # Apply gradient effect - each line gets progressively brighter
+    for i, line in enumerate(banner_lines):
+        # Distribute colors across lines
+        color_index = min(int((i / len(banner_lines)) * len(colors)), len(colors) - 1)
+        print(f"{colors[color_index]}{line}{reset}")
+    print()
+
+
 def cleanup_processes() -> None:
     """Clean up any active processing threads or subprocesses"""
     global SHUTDOWN_FLAG
@@ -1537,6 +1567,7 @@ if __name__ == "__main__":
 
     # Only print startup message if not already printed by run_ui.sh
     if not os.environ.get("DEPTH_SURGE_UI_SCRIPT"):
+        print_banner()
         print("Starting Depth Surge 3D Web UI...")
         print(f"Navigate to http://localhost:{args.port}")
 
