@@ -111,35 +111,35 @@ def print_banner() -> None:
     except Exception:
         git_commit = "unknown"
 
-    # Lime gradient (27 colors: dark green -> bright lime -> yellow-green)
+    # Lime gradient (27 unique colors: dark green -> bright lime, staying on-brand)
     lime_colors = [
-        "\033[38;5;22m",  # 1: Dark green
-        "\033[38;5;22m",  # 2: Dark green
+        "\033[38;5;22m",  # 1: Dark forest green
+        "\033[38;5;22m",  # 2: Dark forest green
         "\033[38;5;28m",  # 3: Dark green
-        "\033[38;5;28m",  # 4: Medium dark green
-        "\033[38;5;28m",  # 5: Medium dark green
+        "\033[38;5;28m",  # 4: Dark green
+        "\033[38;5;34m",  # 5: Medium dark green
         "\033[38;5;34m",  # 6: Medium dark green
-        "\033[38;5;34m",  # 7: Medium green
-        "\033[38;5;34m",  # 8: Medium green
-        "\033[38;5;40m",  # 9: Medium green
-        "\033[38;5;40m",  # 10: Bright green
-        "\033[38;5;40m",  # 11: Bright green
-        "\033[38;5;46m",  # 12: Bright green
-        "\033[38;5;46m",  # 13: Lime
-        "\033[38;5;46m",  # 14: Lime
-        "\033[38;5;82m",  # 15: Lime
-        "\033[38;5;82m",  # 16: Bright lime
-        "\033[38;5;82m",  # 17: Bright lime
-        "\033[38;5;118m",  # 18: Bright lime
-        "\033[38;5;118m",  # 19: Very bright lime
-        "\033[38;5;118m",  # 20: Very bright lime
-        "\033[38;5;154m",  # 21: Very bright lime
-        "\033[38;5;154m",  # 22: Yellow-lime
-        "\033[38;5;154m",  # 23: Yellow-lime
-        "\033[38;5;190m",  # 24: Yellow-lime
-        "\033[38;5;190m",  # 25: Light yellow-green
-        "\033[38;5;190m",  # 26: Light yellow-green
-        "\033[38;5;226m",  # 27: Yellow
+        "\033[38;5;40m",  # 7: Medium green
+        "\033[38;5;40m",  # 8: Medium green
+        "\033[38;5;46m",  # 9: Bright green / Lime start
+        "\033[38;5;46m",  # 10: Bright green / Lime start
+        "\033[38;5;47m",  # 11: Bright green
+        "\033[38;5;48m",  # 12: Spring green
+        "\033[38;5;49m",  # 13: Spring green
+        "\033[38;5;82m",  # 14: Lime (core brand color)
+        "\033[38;5;82m",  # 15: Lime (core brand color)
+        "\033[38;5;83m",  # 16: Lime
+        "\033[38;5;84m",  # 17: Bright lime
+        "\033[38;5;85m",  # 18: Bright lime
+        "\033[38;5;118m",  # 19: Chartreuse lime
+        "\033[38;5;118m",  # 20: Chartreuse lime
+        "\033[38;5;119m",  # 21: Chartreuse
+        "\033[38;5;120m",  # 22: Light chartreuse
+        "\033[38;5;121m",  # 23: Light chartreuse
+        "\033[38;5;154m",  # 24: Lime-green
+        "\033[38;5;154m",  # 25: Lime-green
+        "\033[38;5;155m",  # 26: Light lime-green
+        "\033[38;5;156m",  # 27: Pale lime (endpoint)
     ]
 
     # Blue accent colors
@@ -175,7 +175,7 @@ def print_banner() -> None:
     # Text lines with border and lime diagonal gradient
     for row_idx, line in enumerate(banner_lines):
         # Left border character with lime gradient
-        left_color_idx = int((row_idx / (num_rows + 1)) * len(lime_colors))
+        left_color_idx = int((row_idx / (num_rows + 1)) * (len(lime_colors) - 1))
         left_color_idx = max(0, min(left_color_idx, len(lime_colors) - 1))
         colored_line = f"{lime_colors[left_color_idx]}▐{reset} "
 
@@ -189,7 +189,7 @@ def print_banner() -> None:
             colored_line += f"{lime_colors[color_index]}{char}"
 
         # Right border character with lime gradient
-        right_color_idx = int(((row_idx + 1) / (num_rows + 1)) * len(lime_colors))
+        right_color_idx = int(((row_idx + 1) / (num_rows + 1)) * (len(lime_colors) - 1))
         right_color_idx = max(0, min(right_color_idx, len(lime_colors) - 1))
         colored_line += f"{reset} {lime_colors[right_color_idx]}▌{reset}"
         print(colored_line)
