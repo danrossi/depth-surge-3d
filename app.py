@@ -89,8 +89,8 @@ def vprint(*args: Any, **kwargs: Any) -> None:
 
 
 def print_banner() -> None:
-    """Print Depth Surge 3D banner with lime gradient"""
-    # ANSI color codes for lime gradient (6 shades: dark green -> bright lime)
+    """Print Depth Surge 3D banner with diagonal lime gradient (135°)"""
+    # ANSI color codes for lime gradient (dark green -> bright lime -> yellow-green)
     colors = [
         "\033[38;5;22m",  # Shade 1: Dark green
         "\033[38;5;28m",  # Shade 2: Medium dark green
@@ -98,6 +98,9 @@ def print_banner() -> None:
         "\033[38;5;40m",  # Shade 4: Bright green
         "\033[38;5;46m",  # Shade 5: Lime
         "\033[38;5;82m",  # Shade 6: Bright lime
+        "\033[38;5;118m",  # Shade 7: Very bright lime
+        "\033[38;5;154m",  # Shade 8: Yellow-lime
+        "\033[38;5;190m",  # Shade 9: Light yellow-green
     ]
     reset = "\033[0m"
 
@@ -109,13 +112,20 @@ def print_banner() -> None:
     ]
 
     print()
-    # Apply horizontal gradient across each line
-    for line in banner_lines:
+    # Apply diagonal gradient (135° angle: top-left to bottom-right)
+    num_rows = len(banner_lines)
+    line_length = len(banner_lines[0])
+    max_diagonal = num_rows + line_length - 2  # Maximum diagonal position
+
+    for row_idx, line in enumerate(banner_lines):
         colored_line = ""
-        line_length = len(line)
-        for i, char in enumerate(line):
-            # Map character position to color gradient (0 to 5)
-            color_index = min(int((i / line_length) * len(colors)), len(colors) - 1)
+        for col_idx, char in enumerate(line):
+            # Diagonal position (135° gradient from top-left to bottom-right)
+            diagonal_pos = row_idx + col_idx
+            # Map diagonal position to color gradient
+            color_index = min(
+                int((diagonal_pos / max_diagonal) * len(colors)), len(colors) - 1
+            )
             colored_line += f"{colors[color_index]}{char}"
         print(f"{colored_line}{reset}")
     print()
