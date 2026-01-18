@@ -59,6 +59,8 @@
 ### 🎛️ Advanced Settings
 - [ ] Fine-tune stereo parameters per VR headset
   - Presets for Quest 2/3, Vive, PSVR2, etc.
+  - Documentation complete (see VR_HEADSET_COMPATIBILITY.md)
+  - Implementation: Create preset system in StereoProjector
 - [ ] Custom depth model selection
   - Support multiple depth estimation models
   - Allow model switching without reinstall
@@ -102,7 +104,11 @@
   - Depth map visualization tools
 
 ## Documentation
-- [ ] Create VR headset compatibility matrix
+- [x] Create VR headset compatibility matrix ✓ (2026-01-18)
+  - Top 10 most popular VR headsets with specs and recommendations
+  - Official sources: Meta, Sony, Valve, HTC, Pico
+  - Detailed compatibility guide with optimal settings per device
+  - See: docs/VR_HEADSET_COMPATIBILITY.md
 - [ ] Document performance benchmarks by GPU
   - V2 vs V3 performance comparison
   - Memory usage for different video lengths and resolutions
