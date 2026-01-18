@@ -255,6 +255,8 @@ class ProgressCallback:
         self.step_start_times = {}  # Track start time for each step
         self.current_step_name = None
         self.start_time = time.time()  # For ETA calculation
+        self.step_frame_times = []  # Track recent frame times for current step
+        self.step_start_progress = 0  # Track progress when step started
 
         # Preview tracking
         self.enable_live_preview = enable_live_preview
@@ -340,7 +342,11 @@ class ProgressCallback:
 
     def _calculate_eta(self, current_progress: float) -> str | None:
         """
-        Calculate estimated time remaining based on overall progress.
+        Calculate estimated time remaining using adaptive per-step timing.
+
+        This uses actual measured time-per-frame for the current step and
+        weights for remaining steps, providing much more accurate ETAs
+        especially for slow steps like ESRGAN upscaling.
 
         Args:
             current_progress: Current progress percentage (0-100)
@@ -354,17 +360,63 @@ class ProgressCallback:
         current_time = time.time()
         elapsed = current_time - self.start_time
 
-        # Need at least 5 seconds of data for reasonable estimate
-        if elapsed < 5:
+        # Need at least 3 seconds of data for reasonable estimate
+        if elapsed < 3:
             return None
 
-        # Calculate time per unit of progress
-        progress_ratio = current_progress / 100.0
-        if progress_ratio <= 0:
-            return None
+        # Strategy: Estimate remaining time for current step + remaining steps
+        remaining_time = 0
 
-        estimated_total_time = elapsed / progress_ratio
-        remaining_time = estimated_total_time - elapsed
+        # 1. Estimate remaining time for current step
+        if self.step_total > 0 and self.step_progress > 0:
+            # Use actual measured rate for current step
+            step_start_time = self.step_start_times.get(self.current_step_name, self.start_time)
+            step_elapsed = current_time - step_start_time
+
+            # Need at least 2 seconds into current step for accurate measurement
+            if step_elapsed >= 2:
+                frames_completed = self.step_progress
+                frames_remaining = self.step_total - self.step_progress
+
+                # Calculate time per frame for this step
+                time_per_frame = step_elapsed / max(frames_completed, 1)
+
+                # Estimate remaining time for this step
+                step_remaining_time = time_per_frame * frames_remaining
+                remaining_time += step_remaining_time
+
+        # 2. Estimate time for remaining steps using weight-based projection
+        # Use the overall rate as a fallback for future steps
+        if self.current_step_index < len(self.steps) - 1:
+            # Calculate remaining work (by weight)
+            remaining_weight = sum(self.step_weights[self.current_step_index + 1:])
+
+            # Calculate current step's completion ratio
+            current_step_ratio = (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
+            remaining_current_step_weight = self.step_weights[self.current_step_index] * (1 - current_step_ratio)
+
+            total_remaining_weight = remaining_current_step_weight + remaining_weight
+
+            # Estimate time based on overall average rate (fallback for steps we haven't measured)
+            if current_progress > 5:  # Need some progress to estimate
+                avg_time_per_percent = elapsed / current_progress
+                remaining_percent = 100 - current_progress
+                fallback_estimate = avg_time_per_percent * remaining_percent
+
+                # Weight between step-based estimate and fallback
+                # Use step-based more heavily when we have good data
+                if remaining_time > 0:
+                    # We have a step-based estimate, use it primarily
+                    remaining_time = remaining_time * 0.8 + fallback_estimate * 0.2
+                else:
+                    # Fall back to overall rate
+                    remaining_time = fallback_estimate
+
+        # Fallback: use simple overall progress rate if we don't have step data
+        if remaining_time <= 0 and current_progress > 0:
+            progress_ratio = current_progress / 100.0
+            estimated_total_time = elapsed / progress_ratio
+            remaining_time = estimated_total_time - elapsed
 
         if remaining_time < 0:
             return None
@@ -415,6 +467,8 @@ class ProgressCallback:
             # New step started
             self.current_step_name = step_name
             self.step_start_times[step_name] = current_time
+            self.step_frame_times = []  # Reset frame times for new step
+            self.step_start_progress = progress if 'progress' in locals() else 0
 
             # Update step index
             if step_name in self.steps:
