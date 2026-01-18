@@ -94,10 +94,13 @@ class VideoEncoder:
         # Add audio if preserving - use pre-extracted FLAC file
         if settings.get("preserve_audio", True):
             audio_file = output_dir / "original_audio.flac"
+            print(f"Looking for pre-extracted audio at: {audio_file}")
             if audio_file.exists():
+                print(f"Using pre-extracted audio: {audio_file}")
                 cmd.extend(["-i", str(audio_file), "-c:a", "aac", "-shortest"])
             else:
-                print("Warning: Pre-extracted audio not found, extracting from original video")
+                print(f"Warning: Pre-extracted audio not found at {audio_file}")
+                print(f"Extracting audio from original video: {original_video}")
                 cmd.extend(["-i", original_video, "-c:a", "aac", "-shortest"])
 
         # Add video encoding settings

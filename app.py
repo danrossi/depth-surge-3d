@@ -960,9 +960,11 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
 
         if probe_result.stdout.strip() == "audio":
             # Video has audio, extract it
+            print(f"Extracting audio to: {audio_path}")
             result = subprocess.run(
                 [
                     "ffmpeg",
+                    "-y",  # Overwrite existing files
                     "-i",
                     str(video_path),
                     "-vn",  # No video
@@ -978,6 +980,11 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
             )
             if result.returncode != 0:
                 print(f"Warning: Audio extraction failed: {result.stderr}")
+                audio_path = None
+            elif audio_path.exists():
+                print(f"Audio successfully extracted: {audio_path}")
+            else:
+                print(f"Warning: Audio extraction reported success but file not found at: {audio_path}")
                 audio_path = None
         else:
             # No audio stream in video
