@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- Python 3.9+
+- **Python 3.9, 3.10, 3.11, or 3.12** (Python 3.13+ not yet supported)
+  - **Note**: Python 3.13 is not compatible due to dependency limitations (specifically `open3d` in Depth-Anything V3)
+  - See [Issue #11](https://github.com/Tok/depth-surge-3d/issues/11) for tracking Python 3.13 support
 - FFmpeg
 - CUDA 13.0+ (required for GPU acceleration)
 - CUDA-compatible GPU (optional, but strongly recommended for faster processing)
@@ -71,7 +73,7 @@ choco install ffmpeg
 # Or download from: https://ffmpeg.org/download.html
 ```
 
-**Python 3.9+** and **Git**:
+**Python 3.9-3.12** (not 3.13+) and **Git**:
 ```bash
 # Ubuntu/Debian
 sudo apt install python3 python3-venv git
