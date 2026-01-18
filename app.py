@@ -119,22 +119,19 @@ def _rgb_to_ansi256(r: int, g: int, b: int) -> int:
 
 
 def _get_lime_color(position: float) -> str:
-    """Lerp between dark green and bright lime RGB values for smooth gradient"""
-    # Clamp position to valid range (handles stretched gradient beyond 0-1)
-    position = max(0.0, min(1.0, position))
-
-    # Define start and end colors in RGB (0-5 scale for ANSI 256)
-    # Dark green: no red, low-medium green, no blue
-    start_rgb = (0, 2, 0)  # Darker green
-    # Bright lime: medium red, full green, no blue
-    end_rgb = (3, 5, 0)  # Bright lime
+    """Lerp between dark green and brand lime (#39ff14) for smooth gradient"""
+    # Brand lime color from CSS: #39ff14 = RGB(57, 255, 20)
+    # Converted to ANSI 0-5 scale: (1, 5, 0)
+    # Create gradient from dark green to brand lime
+    start_rgb = (0, 3, 0)  # Dark green
+    end_rgb = (1, 5, 0)  # Brand lime (#39ff14)
 
     # Lerp each RGB component with rounding for smoothness
     r = round(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * position)
     g = round(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * position)
     b = round(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * position)
 
-    # Clamp to valid range
+    # Clamp to valid range (0-5)
     r = max(0, min(5, r))
     g = max(0, min(5, g))
     b = max(0, min(5, b))
@@ -146,8 +143,7 @@ def _get_lime_color(position: float) -> str:
 
 def _print_banner_border(border_width: int, char: str, row_offset: int, total_rows: int) -> None:
     """Print border with diagonal gradient matching text"""
-    # Stretch gradient beyond borders by 20% on each side to avoid artifacts
-    margin = 0.2
+    margin = 0.0  # No margin - let gradient span full banner
     max_diagonal = total_rows + border_width
 
     border = " " + _get_lime_color(0.0 - margin) + "█"  # Leading space
@@ -163,8 +159,7 @@ def _print_banner_border(border_width: int, char: str, row_offset: int, total_ro
 def _print_banner_line(line: str, row_idx: int, num_rows: int, max_diagonal: int) -> None:
     """Print single banner line with diagonal gradient"""
     reset = "\033[0m"
-    # Stretch gradient beyond borders by 20% on each side to avoid artifacts
-    margin = 0.2
+    margin = 0.0  # No margin - let gradient span full banner
 
     # Left border with leading space
     left_pos = row_idx / (num_rows + 1)
