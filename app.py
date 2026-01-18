@@ -89,9 +89,30 @@ def vprint(*args: Any, **kwargs: Any) -> None:
 
 
 def print_banner() -> None:
-    """Print Depth Surge 3D banner with diagonal lime gradient (135°)"""
-    # ANSI color codes for lime gradient (dark green -> bright lime -> yellow-green)
-    colors = [
+    """Print Depth Surge 3D banner with lime gradient border and blue link"""
+    # Get version and git commit ID
+    try:
+        from depth_surge_3d import __version__
+
+        version = __version__
+    except ImportError:
+        version = "dev"
+
+    try:
+        git_commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=1,
+        ).stdout.strip()
+        if not git_commit:
+            git_commit = "unknown"
+    except Exception:
+        git_commit = "unknown"
+
+    # Lime gradient (dark green -> bright lime -> yellow-green)
+    lime_colors = [
         "\033[38;5;22m",  # Shade 1: Dark green
         "\033[38;5;28m",  # Shade 2: Medium dark green
         "\033[38;5;34m",  # Shade 3: Medium green
@@ -102,30 +123,81 @@ def print_banner() -> None:
         "\033[38;5;154m",  # Shade 8: Yellow-lime
         "\033[38;5;190m",  # Shade 9: Light yellow-green
     ]
+
+    # Blue accent colors
+    blue_accent = "\033[38;5;39m"  # Sky blue accent
+    bright_blue = "\033[38;5;51m"  # Bright cyan for version/commit
+
     reset = "\033[0m"
 
     # ASCII art banner
     banner_lines = [
-        "░█▀▄░█▀▀░█▀█░▀█▀░█░█░░█▀▀░█░█░█▀▄░█▀▀░█▀▀░░▀▀█░█▀▄",
-        "░█░█░█▀▀░█▀▀░░█░░█▀█░░▀▀█░█░█░█▀▄░█░█░█▀▀░░░▀▄░█░█",
-        "░▀▀░░▀▀▀░▀░░░░▀░░▀░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░░▀▀░░▀▀░",
+        "░█▀▄░█▀▀░█▀█░▀█▀░█░█░░░█▀▀░█░█░█▀▄░█▀▀░█▀▀░░░▀▀█░█▀▄",
+        "░█░█░█▀▀░█▀▀░░█░░█▀█░░░▀▀█░█░█░█▀▄░█░█░█▀▀░░░░▀▄░█░█",
+        "░▀▀░░▀▀▀░▀░░░░▀░░▀░▀░░░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀▀▀░░░▀▀░░▀▀░",
     ]
 
     print()
-    # Apply diagonal gradient (135° angle: top-left to bottom-right)
+
+    # Calculate dimensions
+    border_width = len(banner_lines[0]) + 2  # +2 for spaces around text
     num_rows = len(banner_lines)
     line_length = len(banner_lines[0])
-    max_diagonal = num_rows + line_length - 2  # Maximum diagonal position
+    max_diagonal = num_rows + line_length - 2
 
+    # Top border with lime gradient
+    top_border = f"{lime_colors[0]}▐"
+    for i in range(border_width):
+        color_idx = min(int((i / border_width) * len(lime_colors)), len(lime_colors) - 1)
+        top_border += f"{lime_colors[color_idx]}▀"
+    top_border += f"{lime_colors[-1]}▌{reset}"
+    print(top_border)
+
+    # Text lines with border and lime diagonal gradient
     for row_idx, line in enumerate(banner_lines):
-        colored_line = ""
+        # Left border character with lime gradient
+        left_color_idx = min(
+            int((row_idx / (num_rows + 1)) * len(lime_colors)), len(lime_colors) - 1
+        )
+        colored_line = f"{lime_colors[left_color_idx]}▐{reset} "
+
+        # Apply diagonal gradient to text (135° angle)
         for col_idx, char in enumerate(line):
-            # Diagonal position (135° gradient from top-left to bottom-right)
             diagonal_pos = row_idx + col_idx
-            # Map diagonal position to color gradient
-            color_index = min(int((diagonal_pos / max_diagonal) * len(colors)), len(colors) - 1)
-            colored_line += f"{colors[color_index]}{char}"
-        print(f"{colored_line}{reset}")
+            color_index = min(
+                int((diagonal_pos / max_diagonal) * len(lime_colors)), len(lime_colors) - 1
+            )
+            colored_line += f"{lime_colors[color_index]}{char}"
+
+        # Right border character with lime gradient
+        right_color_idx = min(
+            int(((row_idx + 1) / (num_rows + 1)) * len(lime_colors)), len(lime_colors) - 1
+        )
+        colored_line += f"{reset} {lime_colors[right_color_idx]}▌{reset}"
+        print(colored_line)
+
+    # Bottom border with lime gradient
+    bottom_border = f"{lime_colors[0]}▐"
+    for i in range(border_width):
+        color_idx = min(int((i / border_width) * len(lime_colors)), len(lime_colors) - 1)
+        bottom_border += f"{lime_colors[color_idx]}▄"
+    bottom_border += f"{lime_colors[-1]}▌{reset}"
+    print(bottom_border)
+
+    # GitHub repo link with accent blue
+    repo_link = "https://github.com/Tok/depth-surge-3d"
+
+    # Center the link
+    padding = (border_width - len(repo_link)) // 2
+    print(f"{' ' * padding}{blue_accent}{repo_link}{reset}")
+
+    # Version and commit info with bright blue accents
+    version_info = f"v{version} [{git_commit}]"
+    version_padding = (border_width - len(version_info)) // 2
+    print(
+        f"{' ' * version_padding}v{bright_blue}{version}{reset} [{bright_blue}{git_commit}{reset}]"
+    )
+
     print()
 
 
