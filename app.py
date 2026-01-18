@@ -111,17 +111,35 @@ def print_banner() -> None:
     except Exception:
         git_commit = "unknown"
 
-    # Lime gradient (dark green -> bright lime -> yellow-green)
+    # Lime gradient (27 colors: dark green -> bright lime -> yellow-green)
     lime_colors = [
-        "\033[38;5;22m",  # Shade 1: Dark green
-        "\033[38;5;28m",  # Shade 2: Medium dark green
-        "\033[38;5;34m",  # Shade 3: Medium green
-        "\033[38;5;40m",  # Shade 4: Bright green
-        "\033[38;5;46m",  # Shade 5: Lime
-        "\033[38;5;82m",  # Shade 6: Bright lime
-        "\033[38;5;118m",  # Shade 7: Very bright lime
-        "\033[38;5;154m",  # Shade 8: Yellow-lime
-        "\033[38;5;190m",  # Shade 9: Light yellow-green
+        "\033[38;5;22m",  # 1: Dark green
+        "\033[38;5;22m",  # 2: Dark green
+        "\033[38;5;28m",  # 3: Dark green
+        "\033[38;5;28m",  # 4: Medium dark green
+        "\033[38;5;28m",  # 5: Medium dark green
+        "\033[38;5;34m",  # 6: Medium dark green
+        "\033[38;5;34m",  # 7: Medium green
+        "\033[38;5;34m",  # 8: Medium green
+        "\033[38;5;40m",  # 9: Medium green
+        "\033[38;5;40m",  # 10: Bright green
+        "\033[38;5;40m",  # 11: Bright green
+        "\033[38;5;46m",  # 12: Bright green
+        "\033[38;5;46m",  # 13: Lime
+        "\033[38;5;46m",  # 14: Lime
+        "\033[38;5;82m",  # 15: Lime
+        "\033[38;5;82m",  # 16: Bright lime
+        "\033[38;5;82m",  # 17: Bright lime
+        "\033[38;5;118m",  # 18: Bright lime
+        "\033[38;5;118m",  # 19: Very bright lime
+        "\033[38;5;118m",  # 20: Very bright lime
+        "\033[38;5;154m",  # 21: Very bright lime
+        "\033[38;5;154m",  # 22: Yellow-lime
+        "\033[38;5;154m",  # 23: Yellow-lime
+        "\033[38;5;190m",  # 24: Yellow-lime
+        "\033[38;5;190m",  # 25: Light yellow-green
+        "\033[38;5;190m",  # 26: Light yellow-green
+        "\033[38;5;226m",  # 27: Yellow
     ]
 
     # Blue accent colors
@@ -148,7 +166,8 @@ def print_banner() -> None:
     # Top border with lime gradient
     top_border = f"{lime_colors[0]}▐"
     for i in range(border_width):
-        color_idx = min(int((i / border_width) * len(lime_colors)), len(lime_colors) - 1)
+        color_idx = int((i / border_width) * (len(lime_colors) - 1))
+        color_idx = max(0, min(color_idx, len(lime_colors) - 1))
         top_border += f"{lime_colors[color_idx]}▀"
     top_border += f"{lime_colors[-1]}▌{reset}"
     print(top_border)
@@ -156,30 +175,30 @@ def print_banner() -> None:
     # Text lines with border and lime diagonal gradient
     for row_idx, line in enumerate(banner_lines):
         # Left border character with lime gradient
-        left_color_idx = min(
-            int((row_idx / (num_rows + 1)) * len(lime_colors)), len(lime_colors) - 1
-        )
+        left_color_idx = int((row_idx / (num_rows + 1)) * len(lime_colors))
+        left_color_idx = max(0, min(left_color_idx, len(lime_colors) - 1))
         colored_line = f"{lime_colors[left_color_idx]}▐{reset} "
 
-        # Apply diagonal gradient to text (135° angle)
+        # Apply diagonal gradient to text (135° angle: top-left to bottom-right)
         for col_idx, char in enumerate(line):
-            diagonal_pos = row_idx + col_idx
-            color_index = min(
-                int((diagonal_pos / max_diagonal) * len(lime_colors)), len(lime_colors) - 1
-            )
+            # Calculate position along diagonal (0.0 to 1.0)
+            diagonal_pos = (row_idx + col_idx) / max_diagonal
+            # Map to color index using float for smoother distribution
+            color_index = int(diagonal_pos * (len(lime_colors) - 1))
+            color_index = max(0, min(color_index, len(lime_colors) - 1))
             colored_line += f"{lime_colors[color_index]}{char}"
 
         # Right border character with lime gradient
-        right_color_idx = min(
-            int(((row_idx + 1) / (num_rows + 1)) * len(lime_colors)), len(lime_colors) - 1
-        )
+        right_color_idx = int(((row_idx + 1) / (num_rows + 1)) * len(lime_colors))
+        right_color_idx = max(0, min(right_color_idx, len(lime_colors) - 1))
         colored_line += f"{reset} {lime_colors[right_color_idx]}▌{reset}"
         print(colored_line)
 
     # Bottom border with lime gradient
     bottom_border = f"{lime_colors[0]}▐"
     for i in range(border_width):
-        color_idx = min(int((i / border_width) * len(lime_colors)), len(lime_colors) - 1)
+        color_idx = int((i / border_width) * (len(lime_colors) - 1))
+        color_idx = max(0, min(color_idx, len(lime_colors) - 1))
         bottom_border += f"{lime_colors[color_idx]}▄"
     bottom_border += f"{lime_colors[-1]}▌{reset}"
     print(bottom_border)
