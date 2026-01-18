@@ -1353,7 +1353,7 @@
                             <!-- Depth Map Preview -->
                             <div class="col-md-4">
                                 <div class="preview-item">
-                                    <div class="preview-label mb-2"><strong>Depth Map</strong></div>
+                                    <div class="preview-label mb-2"><strong id="depthMapLabel">Depth Map</strong></div>
                                     <img id="depthMapPreview"
                                          src=""
                                          alt="Depth map preview"
@@ -1365,7 +1365,7 @@
                             <!-- Stereo Left Preview -->
                             <div class="col-md-4">
                                 <div class="preview-item">
-                                    <div class="preview-label mb-2"><strong>Left Eye</strong></div>
+                                    <div class="preview-label mb-2"><strong id="stereoLeftLabel">Left Eye</strong></div>
                                     <img id="stereoLeftPreview"
                                          src=""
                                          alt="Left eye preview"
@@ -1377,7 +1377,7 @@
                             <!-- VR Frame Preview -->
                             <div class="col-md-4">
                                 <div class="preview-item">
-                                    <div class="preview-label mb-2"><strong>VR Output</strong></div>
+                                    <div class="preview-label mb-2"><strong id="vrFrameLabel">VR Output</strong></div>
                                     <img id="vrFramePreview"
                                          src=""
                                          alt="VR frame preview"
@@ -2410,14 +2410,23 @@
             if (previewCard) {
                 previewCard.style.display = 'none';
             }
+            // Clear preview images
             ['depthMapPreview', 'stereoLeftPreview', 'vrFramePreview'].forEach(id => {
                 const img = document.getElementById(id);
                 if (img) img.src = '';
             });
+            // Reset frame counters
             ['depthMapFrame', 'stereoLeftFrame', 'vrFrameFrame'].forEach(id => {
                 const label = document.getElementById(id);
                 if (label) label.textContent = 'Frame: --';
             });
+            // Reset labels to defaults
+            const depthLabel = document.getElementById('depthMapLabel');
+            const stereoLabel = document.getElementById('stereoLeftLabel');
+            const vrLabel = document.getElementById('vrFrameLabel');
+            if (depthLabel) depthLabel.textContent = 'Depth Map';
+            if (stereoLabel) stereoLabel.textContent = 'Left Eye';
+            if (vrLabel) vrLabel.textContent = 'VR Output';
 
             // Show output directory card
             document.getElementById('outputPath').textContent = data.output_dir;
@@ -2477,14 +2486,23 @@
             if (previewCard) {
                 previewCard.style.display = 'none';
             }
+            // Clear preview images
             ['depthMapPreview', 'stereoLeftPreview', 'vrFramePreview'].forEach(id => {
                 const img = document.getElementById(id);
                 if (img) img.src = '';
             });
+            // Reset frame counters
             ['depthMapFrame', 'stereoLeftFrame', 'vrFrameFrame'].forEach(id => {
                 const label = document.getElementById(id);
                 if (label) label.textContent = 'Frame: --';
             });
+            // Reset labels to defaults
+            const depthLabel = document.getElementById('depthMapLabel');
+            const stereoLabel = document.getElementById('stereoLeftLabel');
+            const vrLabel = document.getElementById('vrFrameLabel');
+            if (depthLabel) depthLabel.textContent = 'Depth Map';
+            if (stereoLabel) stereoLabel.textContent = 'Left Eye';
+            if (vrLabel) vrLabel.textContent = 'VR Output';
 
             // Reset upload state immediately (don't wait for modal dismiss)
             uploadedFilename = null;
@@ -2535,14 +2553,23 @@
             if (previewCard) {
                 previewCard.style.display = 'none';
             }
+            // Clear preview images
             ['depthMapPreview', 'stereoLeftPreview', 'vrFramePreview'].forEach(id => {
                 const img = document.getElementById(id);
                 if (img) img.src = '';
             });
+            // Reset frame counters
             ['depthMapFrame', 'stereoLeftFrame', 'vrFrameFrame'].forEach(id => {
                 const label = document.getElementById(id);
                 if (label) label.textContent = 'Frame: --';
             });
+            // Reset labels to defaults
+            const depthLabel = document.getElementById('depthMapLabel');
+            const stereoLabel = document.getElementById('stereoLeftLabel');
+            const vrLabel = document.getElementById('vrFrameLabel');
+            if (depthLabel) depthLabel.textContent = 'Depth Map';
+            if (stereoLabel) stereoLabel.textContent = 'Left Eye';
+            if (vrLabel) vrLabel.textContent = 'VR Output';
 
             // Show info message
             alert('Processing has been stopped: ' + data.message);
@@ -2577,21 +2604,35 @@
             const imageData = data.image_data;
             const frameNumber = data.frame_number;
 
+            // Map frame types to descriptive labels
+            const frameTypeLabels = {
+                'depth_map': 'Depth Map',
+                'stereo_left': 'Stereo Pair (Left)',
+                'upscaled_left': 'Upscaled (Left)',
+                'vr_frame': 'VR Output'
+            };
+
             if (frameType === 'depth_map') {
                 const img = document.getElementById('depthMapPreview');
                 const label = document.getElementById('depthMapFrame');
+                const titleLabel = document.getElementById('depthMapLabel');
                 if (img) img.src = imageData;
                 if (label) label.textContent = `Frame: ${frameNumber}`;
-            } else if (frameType === 'stereo_left') {
+                if (titleLabel) titleLabel.textContent = frameTypeLabels[frameType] || 'Depth Map';
+            } else if (frameType === 'stereo_left' || frameType === 'upscaled_left') {
                 const img = document.getElementById('stereoLeftPreview');
                 const label = document.getElementById('stereoLeftFrame');
+                const titleLabel = document.getElementById('stereoLeftLabel');
                 if (img) img.src = imageData;
                 if (label) label.textContent = `Frame: ${frameNumber}`;
+                if (titleLabel) titleLabel.textContent = frameTypeLabels[frameType] || 'Left Eye';
             } else if (frameType === 'vr_frame') {
                 const img = document.getElementById('vrFramePreview');
                 const label = document.getElementById('vrFrameFrame');
+                const titleLabel = document.getElementById('vrFrameLabel');
                 if (img) img.src = imageData;
                 if (label) label.textContent = `Frame: ${frameNumber}`;
+                if (titleLabel) titleLabel.textContent = frameTypeLabels[frameType] || 'VR Output';
             }
         }
 

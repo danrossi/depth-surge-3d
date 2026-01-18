@@ -1590,7 +1590,15 @@ class VideoProcessor:
         if settings["keep_intermediates"]:
             frame_name = left_file.stem
             if left_upscaled:
-                cv2.imwrite(str(left_upscaled / f"{frame_name}.png"), left_upscaled_img)
+                left_upscaled_path = left_upscaled / f"{frame_name}.png"
+                cv2.imwrite(str(left_upscaled_path), left_upscaled_img)
+
+                # Send preview frame
+                if progress_tracker and hasattr(progress_tracker, "send_preview_frame"):
+                    if frame_idx % PREVIEW_FRAME_SAMPLE_RATE == 0 or frame_idx == total_frames - 1:
+                        progress_tracker.send_preview_frame(
+                            left_upscaled_path, "upscaled_left", frame_idx + 1
+                        )
             if right_upscaled:
                 cv2.imwrite(str(right_upscaled / f"{frame_name}.png"), right_upscaled_img)
 
