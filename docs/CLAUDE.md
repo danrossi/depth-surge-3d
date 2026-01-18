@@ -1,6 +1,6 @@
 # Depth Surge 3D - Development Guide
 
-**Version**: 0.8.1
+**Version**: 0.9.0
 **Purpose**: 2D to 3D VR video converter using AI depth estimation (Depth-Anything V3/V2)
 
 ---
@@ -30,9 +30,15 @@ black src/ tests/
 # 2. Lint code (must pass with 0 errors)
 flake8 src/ tests/ --count --show-source --statistics
 
-# 3. Run unit tests
-pytest tests/unit -v
+# 3. Run unit tests (MUST pass, no exceptions)
+./scripts/run-unit-tests.sh              # Linux/macOS
+# OR
+.\scripts\run-unit-tests.ps1             # Windows
+# OR
+pytest tests/unit -v                     # Direct pytest
 ```
+
+**DO NOT commit if any of these fail. No exceptions.**
 
 **Complete coding standards**: See [CODING_GUIDE.md](CODING_GUIDE.md)
 - Functional programming patterns

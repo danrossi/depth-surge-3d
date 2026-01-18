@@ -5,7 +5,7 @@ This package provides tools for creating stereoscopic VR content from monocular 
 using state-of-the-art depth estimation models.
 """
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 __author__ = "Depth Surge 3D Team"
 __description__ = "Convert 2D videos to immersive 3D VR format using AI depth estimation"
 

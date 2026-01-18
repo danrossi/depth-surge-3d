@@ -12,7 +12,7 @@ class TestPackageMetadata:
 
         assert hasattr(depth_surge_3d, "__version__")
         assert isinstance(depth_surge_3d.__version__, str)
-        assert depth_surge_3d.__version__ == "0.8.1"
+        assert depth_surge_3d.__version__ == "0.9.0"
 
     def test_author_attribute(self):
         """Test that __author__ is defined."""
