@@ -91,6 +91,7 @@ uv run python depth_surge_3d.py input_video.mp4
 - **[Usage Guide](docs/USAGE.md)** - Complete usage examples and workflows
 - **[Parameters Reference](docs/PARAMETERS.md)** - All command-line options and settings explained
 - **[VR Headset Compatibility](docs/VR_HEADSET_COMPATIBILITY.md)** - Specs and optimal settings for top 10 VR devices
+- **[Performance Benchmarks](docs/PERFORMANCE.md)** - GPU benchmarks, VRAM usage, and optimization guide
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and performance tips
 
 **Technical Documentation:**

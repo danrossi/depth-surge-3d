@@ -109,10 +109,13 @@
   - Official sources: Meta, Sony, Valve, HTC, Pico
   - Detailed compatibility guide with optimal settings per device
   - See: docs/VR_HEADSET_COMPATIBILITY.md
-- [ ] Document performance benchmarks by GPU
-  - V2 vs V3 performance comparison
-  - Memory usage for different video lengths and resolutions
-  - Frame processing speed by model variant
+- [x] Document performance benchmarks by GPU ✓ (2026-01-18)
+  - V2 vs V3 performance comparison with detailed processing time tables
+  - VRAM usage patterns by resolution, model size, and GPU tier
+  - Chunk size auto-adjustment algorithms and memory estimates
+  - GPU performance tiers with recommendations
+  - Optimization guide and troubleshooting section
+  - See: docs/PERFORMANCE.md
 
 ## Technical Debt
 - [ ] Clean up commented debug code
