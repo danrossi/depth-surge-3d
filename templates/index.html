@@ -2189,6 +2189,11 @@
 
         // Update progress
         function updateProgress(data) {
+            // Ignore progress updates if no active session (prevents stale updates after completion)
+            if (!currentSessionId) {
+                return;
+            }
+
             // Update overall progress bar
             const overallBar = document.getElementById('overallProgressBar');
             const overallText = document.getElementById('overallProgressText');
@@ -2276,8 +2281,11 @@
                 }
             }
 
-            // Hide stop button, show start button
-            hideProgressPanel();
+            // Hide progress panel and clean up session state
+            document.querySelector('.progress-container').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('processBtn').style.display = 'inline-block';
+            hideCurrentBatchDirectory();
             currentSessionId = null;
 
             // Show output directory card
@@ -2312,10 +2320,10 @@
                 if (uploadBtnText) uploadBtnText.textContent = 'Choose Video File';
 
                 // Disable process button until new video is uploaded
-                document.getElementById('processBtn').disabled = true;
-
-                // Remove this event listener to prevent multiple bindings
-                this.removeEventListener('hidden.bs.modal', resetAfterComplete);
+                const processBtn = document.getElementById('processBtn');
+                if (processBtn) {
+                    processBtn.disabled = true;
+                }
             }, { once: true });
         }
 
