@@ -241,6 +241,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Settings persistence** for AI upscaling and other UI state
 - **Cropped frames pipeline** fixed to always save frames for upscaling
 
+#### Code Architecture & Modularization
+- **VideoProcessor refactored into specialized modules**
+  - Reduced from 2002 LOC monolith to 7 focused modules (~500 LOC each)
+  - Created `depth_processor.py` for depth map generation with caching
+  - Created `stereo_generator.py` for stereo pair creation
+  - Created `distortion_processor.py` for fisheye distortion and cropping
+  - Created `frame_upscaler.py` for AI upscaling orchestration
+  - Created `vr_assembler.py` for VR frame assembly
+  - Created `video_encoder.py` for video encoding with FFmpeg
+  - Created `pipeline_orchestrator.py` for high-level pipeline coordination
+  - Improves maintainability, testability, and separation of concerns
+- **Module structure reorganization**
+  - Moved inference modules to `inference/depth/` and `inference/upscaling/`
+  - Separated processing into `frames/`, `video/`, and `orchestration/`
+  - Organized utils into `domain/`, `imaging/`, and `system/` categories
+  - All imports updated to reflect new structure
+- **Real-ESRGAN model checksum corrections**
+  - Fixed SHA-256 checksums for x2plus and x4-conservative models
+  - Models now download and verify correctly without false corruption errors
+- **Console output restoration**
+  - Restored colored arrow (→) step messages lost during refactor
+  - Lime green arrows for step completion, blue arrows for file paths
+  - Compact format: no blank lines between left/right frame pairs
+  - Clean separation between pipeline steps
+- **Integration test compatibility**
+  - Fixed import paths in CI tests after modularization
+  - All 4 integration tests now pass in CI pipeline
+- **Audio pre-extraction debugging**
+  - Added console output showing extraction and lookup paths
+  - Added `-y` flag to ffmpeg for file overwrites
+  - Improved error messages for troubleshooting
+- **UI styling consistency**
+  - Drag-and-drop zone recolored to lime theme (#39ff14)
+  - Matches Terminal Precision theme throughout interface
+
+#### Security & Code Quality
+- **Codex security review findings addressed**
+  - Fixed all security vulnerabilities identified in review
+  - Improved input validation and sanitization
+  - Enhanced error handling and logging
+- **Test coverage improvements**
+  - Increased from 78% to 91% (723 unit tests + 4 integration tests)
+  - Minimum coverage enforced at 85%, goal documented at 90%
+  - Created comprehensive tests for all new processor modules
+  - Removed redundant test files, suppressed multiprocessing warnings
+- **Automated import path checking**
+  - Created test_imports.py to detect orphaned import paths
+  - Prevents import errors after refactoring
+  - Scans all Python files for old import patterns
+
 ### Performance
 
 - **V3 processing speed**: ~2-3 seconds/frame (RTX 4070 Ti SUPER)
