@@ -6,7 +6,7 @@ import torch
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
-from src.depth_surge_3d.models.upscaler import (
+from src.depth_surge_3d.inference.upscaling.upscaler import (
     ImageUpscaler,
     RealESRGANUpscaler,
     create_upscaler,
@@ -163,7 +163,7 @@ class TestRealESRGANUpscaler:
         with pytest.raises(RuntimeError, match="Model not loaded"):
             upscaler.upscale_image(image)
 
-    @patch("src.depth_surge_3d.models.upscaler.RRDBNet")
+    @patch("src.depth_surge_3d.inference.upscaling.upscaler.RRDBNet")
     @patch("torch.load")
     def test_load_model_x2_download(self, mock_torch_load, mock_rrdb):
         """Test loading x2 model downloads when not cached."""
@@ -191,7 +191,7 @@ class TestRealESRGANUpscaler:
         mock_model.load_state_dict.assert_called_once()
         mock_model.eval.assert_called_once()
 
-    @patch("src.depth_surge_3d.models.upscaler.RRDBNet")
+    @patch("src.depth_surge_3d.inference.upscaling.upscaler.RRDBNet")
     @patch("torch.load")
     def test_load_model_x4_cached(self, mock_torch_load, mock_rrdb):
         """Test loading x4 model uses cache when available."""
@@ -216,7 +216,7 @@ class TestRealESRGANUpscaler:
             num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4
         )
 
-    @patch("src.depth_surge_3d.models.upscaler.RRDBNet")
+    @patch("src.depth_surge_3d.inference.upscaling.upscaler.RRDBNet")
     @patch("torch.load")
     def test_load_model_x4_conservative(self, mock_torch_load, mock_rrdb):
         """Test loading x4-conservative model."""

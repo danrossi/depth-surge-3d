@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import math
 
-from ..core.constants import MIN_DEPTH_VALUE, MAX_DEPTH_VALUE
+from ...core.constants import MIN_DEPTH_VALUE, MAX_DEPTH_VALUE
 
 
 def resize_image(

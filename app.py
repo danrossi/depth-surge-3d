@@ -26,12 +26,12 @@ import numpy as np
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 # Suppress warnings from dependencies
-import warnings
+import warnings  # noqa: E402
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)  # moviepy old regex patterns
 
 # Import our constants and utilities
-from src.depth_surge_3d.core.constants import (
+from src.depth_surge_3d.core.constants import (  # noqa: E402
     INTERMEDIATE_DIRS,
     MODEL_PATHS,
     MODEL_PATHS_METRIC,
@@ -63,18 +63,18 @@ from src.depth_surge_3d.core.constants import (
     DEFAULT_SERVER_HOST,
     SIGNAL_SHUTDOWN_TIMEOUT,
 )
-from src.depth_surge_3d.utils.console import warning as console_warning
+from src.depth_surge_3d.utils.console import warning as console_warning  # noqa: E402
 
-from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO
+from flask import Flask, render_template, request, jsonify  # noqa: E402
+from flask_socketio import SocketIO  # noqa: E402
 
 # NOTE: torch is imported later (line ~960) to avoid CUDA initialization issues
 
 # Add src to path for package imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from depth_surge_3d.core.stereo_projector import create_stereo_projector
-from depth_surge_3d.processing.video_processor import VideoProcessor
+from depth_surge_3d.rendering import create_stereo_projector  # noqa: E402
+from depth_surge_3d.processing.video_processor import VideoProcessor  # noqa: E402
 
 # Global flags and state
 VERBOSE = False
@@ -90,7 +90,7 @@ def vprint(*args: Any, **kwargs: Any) -> None:
 
 def cleanup_processes() -> None:
     """Clean up any active processing threads or subprocesses"""
-    global ACTIVE_PROCESSES, SHUTDOWN_FLAG
+    global SHUTDOWN_FLAG
 
     SHUTDOWN_FLAG = True
     vprint("Cleaning up active processes...")
@@ -98,7 +98,7 @@ def cleanup_processes() -> None:
     # Kill any ffmpeg processes related to this app
     try:
         subprocess.run(["pkill", "-f", "ffmpeg.*depth-surge"], check=False, capture_output=True)
-    except:
+    except Exception:
         pass
 
     # Clean up any tracked processes
@@ -108,7 +108,7 @@ def cleanup_processes() -> None:
                 proc.terminate()
             elif hasattr(proc, "kill"):
                 proc.kill()
-        except:
+        except Exception:
             pass
 
     ACTIVE_PROCESSES.clear()
@@ -117,7 +117,6 @@ def cleanup_processes() -> None:
 
 def signal_handler(signum: int, frame: Any) -> None:
     """Handle shutdown signals"""
-    global current_processing
     print(f"\nReceived signal {signum}, shutting down gracefully...")
 
     # Stop any active processing
@@ -519,19 +518,6 @@ class ProgressCallback:
         # 2. Estimate time for remaining steps using weight-based projection
         # Use the overall rate as a fallback for future steps
         if self.current_step_index < len(self.steps) - 1:
-            # Calculate remaining work (by weight)
-            remaining_weight = sum(self.step_weights[self.current_step_index + 1 :])
-
-            # Calculate current step's completion ratio
-            current_step_ratio = (
-                (self.step_progress / max(self.step_total, 1)) if self.step_total > 0 else 0
-            )
-            remaining_current_step_weight = self.step_weights[self.current_step_index] * (
-                1 - current_step_ratio
-            )
-
-            total_remaining_weight = remaining_current_step_weight + remaining_weight
-
             # Estimate time based on overall average rate (fallback for steps we haven't measured)
             if current_progress > 5:  # Need some progress to estimate
                 avg_time_per_percent = elapsed / current_progress
@@ -571,7 +557,7 @@ class ProgressCallback:
             minutes = int((seconds % 3600) // 60)
             return f"{hours}h {minutes}m"
 
-    def update_progress(
+    def update_progress(  # noqa: C901
         self,
         stage: str,
         frame_num: int | None = None,
@@ -580,7 +566,6 @@ class ProgressCallback:
         step_progress: int | None = None,
         step_total: int | None = None,
     ) -> None:
-        global current_processing
         import time
 
         # Check if stop has been requested
@@ -603,7 +588,7 @@ class ProgressCallback:
             self.current_step_name = step_name
             self.step_start_times[step_name] = current_time
             self.step_frame_times = []  # Reset frame times for new step
-            self.step_start_progress = progress if "progress" in locals() else 0
+            self.step_start_progress = 0  # Reset progress for new step
 
             # Update step index
             if step_name in self.steps:
@@ -708,11 +693,10 @@ class ProgressCallback:
             print(console_warning(f"Error emitting completion: {e}"))
 
 
-def process_video_async(
+def process_video_async(  # noqa: C901
     session_id: str, video_path: str | Path, settings: dict[str, Any], output_dir: str | Path
 ) -> None:
     """Process video in background thread"""
-    global current_processing
     import torch  # Import here to avoid CUDA initialization issues in main thread
 
     try:
@@ -935,7 +919,6 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     # Create timestamped output directory with sanitized filename
     original_filename = sanitize_filename(file.filename)
     video_name = Path(original_filename).stem
-    file_ext = Path(original_filename).suffix
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = Path(app.config["OUTPUT_FOLDER"]) / f"{int(time.time())}_{video_name}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1017,8 +1000,6 @@ def upload_video() -> tuple[dict[str, Any], int] | tuple[Any, int]:
 @app.route("/process", methods=["POST"])
 def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     """Start video processing"""
-    global current_processing
-
     if current_processing["active"]:
         return jsonify({"error": "Processing already in progress"}), 400
 
@@ -1037,7 +1018,7 @@ def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
     try:
         output_dir.relative_to(allowed_base)
     except ValueError:
-        vprint(f"ERROR: Path traversal attempt detected!")
+        vprint("ERROR: Path traversal attempt detected!")
         vprint(f"  Requested path: {output_dir}")
         vprint(f"  Allowed base: {allowed_base}")
         return (
@@ -1046,7 +1027,7 @@ def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
         )
 
     if not output_dir.exists():
-        vprint(f"ERROR: Output directory not found!")
+        vprint("ERROR: Output directory not found!")
         vprint(f"  Requested path: {output_dir_str}")
         vprint(f"  Resolved path: {output_dir}")
         vprint(f"  Exists: {output_dir.exists()}")
@@ -1077,8 +1058,6 @@ def start_processing() -> tuple[dict[str, Any], int] | tuple[Any, int]:
 @app.route("/stop", methods=["POST"])
 def stop_processing() -> dict[str, Any]:
     """Stop current processing"""
-    global current_processing
-
     data = request.json
     session_id = data.get("session_id")
 
@@ -1097,8 +1076,6 @@ def stop_processing() -> dict[str, Any]:
 @app.route("/resume", methods=["POST"])
 def resume_processing():
     """Resume processing from a previous interrupted batch"""
-    global current_processing
-
     if current_processing["active"]:
         return jsonify({"error": "Processing already in progress"}), 400
 
@@ -1255,7 +1232,7 @@ def open_directory():
         return jsonify({"success": False, "error": str(e)})
 
 
-def analyze_batch_directory(batch_path):
+def analyze_batch_directory(batch_path):  # noqa: C901
     """Analyze batch directory to determine available processing stages and settings"""
     analysis = {
         "frame_count": 0,
@@ -1344,7 +1321,7 @@ def analyze_batch_directory(batch_path):
     return analysis
 
 
-def create_video_from_batch(batch_path, settings):
+def create_video_from_batch(batch_path, settings):  # noqa: C901
     """Create video from batch frames using FFmpeg"""
     frame_source = settings.get("frame_source", "auto")
     quality = settings.get("quality", "medium")
@@ -1484,7 +1461,6 @@ def handle_connect():
 
 @socketio.on("disconnect")
 def handle_disconnect():
-    global current_processing
     vprint(f"Client disconnected: {request.sid}")
 
     # Only stop processing if there are no other connected clients
@@ -1549,8 +1525,6 @@ if __name__ == "__main__":
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
-    import torch  # Import here to avoid issues during startup
 
     # Only print startup message if not already printed by run_ui.sh
     if not os.environ.get("DEPTH_SURGE_UI_SCRIPT"):

@@ -62,10 +62,11 @@ fi
 
 
 
-# Download Video-Depth-Anything repository if not present
-if [ ! -d "video_depth_anything_repo" ]; then
-    echo "Downloading Video-Depth-Anything repository..."
-    git clone https://github.com/DepthAnything/Video-Depth-Anything.git video_depth_anything_repo
+# Download Video-Depth-Anything repository if not present (to vendor directory)
+if [ ! -d "vendor/Video-Depth-Anything" ]; then
+    echo "Downloading Video-Depth-Anything repository to vendor directory..."
+    mkdir -p vendor
+    git clone https://github.com/DepthAnything/Video-Depth-Anything.git vendor/Video-Depth-Anything
     if [ $? -eq 0 ]; then
         echo "[OK] Video-Depth-Anything repository downloaded successfully"
     else

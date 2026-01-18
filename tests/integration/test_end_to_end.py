@@ -11,7 +11,7 @@ class TestEndToEnd:
     @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator")
     def test_projector_creation_v2(self, mock_create):
         """Test complete projector creation with V2."""
-        from src.depth_surge_3d.core.stereo_projector import create_stereo_projector
+        from src.depth_surge_3d.rendering import create_stereo_projector
 
         mock_estimator = MagicMock()
         mock_create.return_value = mock_estimator
@@ -28,7 +28,7 @@ class TestEndToEnd:
     @patch("src.depth_surge_3d.core.stereo_projector.create_video_depth_estimator_da3")
     def test_projector_creation_v3(self, mock_create):
         """Test complete projector creation with V3."""
-        from src.depth_surge_3d.core.stereo_projector import create_stereo_projector
+        from src.depth_surge_3d.rendering import create_stereo_projector
 
         mock_estimator = MagicMock()
         mock_create.return_value = mock_estimator
@@ -66,10 +66,10 @@ class TestEndToEnd:
 
     def test_model_factory_functions(self):
         """Test model factory functions are accessible."""
-        from src.depth_surge_3d.models.video_depth_estimator import (
+        from src.depth_surge_3d.inference.video_depth_estimator import (
             create_video_depth_estimator,
         )
-        from src.depth_surge_3d.models.video_depth_estimator_da3 import (
+        from src.depth_surge_3d.inference.video_depth_estimator_da3 import (
             create_video_depth_estimator_da3,
         )
 

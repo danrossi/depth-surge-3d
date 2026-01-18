@@ -13,7 +13,7 @@ __description__ = "Convert 2D videos to immersive 3D VR format using AI depth es
 # Lazy imports to avoid loading heavy dependencies at package import time
 def _lazy_import_stereo_projector():
     """Lazy import StereoProjector to avoid cv2 dependency during package loading."""
-    from .core.stereo_projector import StereoProjector
+    from .rendering import StereoProjector
 
     return StereoProjector
 

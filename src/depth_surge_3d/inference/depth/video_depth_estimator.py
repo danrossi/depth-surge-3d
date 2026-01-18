@@ -15,8 +15,8 @@ from typing import Any
 import torch
 import numpy as np
 
-from ..utils.console import success as console_success, error as console_error
-from ..core.constants import (
+from ...utils.system.console import success as console_success, error as console_error
+from ...core.constants import (
     DEFAULT_MODEL_PATH,
     VIDEO_DEPTH_ANYTHING_REPO_DIR,
     MODEL_CONFIGS,
@@ -121,9 +121,9 @@ class VideoDepthEstimator:
         repo_path = Path(VIDEO_DEPTH_ANYTHING_REPO_DIR)
         if not repo_path.exists():
             print("Video-Depth-Anything repository not found")
-            print("Please ensure the repository is cloned:")
+            print("Please ensure the repository is cloned to the vendor directory:")
             print(
-                f"  git clone https://github.com/DepthAnything/Video-Depth-Anything.git {VIDEO_DEPTH_ANYTHING_REPO_DIR}"
+                f"  mkdir -p vendor && git clone https://github.com/DepthAnything/Video-Depth-Anything.git {VIDEO_DEPTH_ANYTHING_REPO_DIR}"
             )
             return False
 

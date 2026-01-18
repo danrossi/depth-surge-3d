@@ -18,7 +18,7 @@ try:
 except ImportError:
     HAS_TQDM = False
 
-from ..core.constants import (
+from ...core.constants import (
     PROGRESS_UPDATE_INTERVAL,
     PROCESSING_STEPS,
     PROGRESS_DECIMAL_PLACES,
