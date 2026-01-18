@@ -63,7 +63,7 @@ from src.depth_surge_3d.core.constants import (  # noqa: E402
     DEFAULT_SERVER_HOST,
     SIGNAL_SHUTDOWN_TIMEOUT,
 )
-from src.depth_surge_3d.utils.console import warning as console_warning  # noqa: E402
+from src.depth_surge_3d.utils.system.console import warning as console_warning  # noqa: E402
 
 from flask import Flask, render_template, request, jsonify  # noqa: E402
 from flask_socketio import SocketIO  # noqa: E402
@@ -74,7 +74,7 @@ from flask_socketio import SocketIO  # noqa: E402
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from depth_surge_3d.rendering import create_stereo_projector  # noqa: E402
-from depth_surge_3d.processing.video_processor import VideoProcessor  # noqa: E402
+from depth_surge_3d.processing import VideoProcessor  # noqa: E402
 
 # Global flags and state
 VERBOSE = False
