@@ -292,7 +292,14 @@ def _process_single_frame_complete(
     return vr_frame
 
 
-def _process_supersample_frame(projector: Any, frame_file: Path, directories: dict[str, Path], width: int, height: int, **kwargs: Any) -> None:
+def _process_supersample_frame(
+    projector: Any,
+    frame_file: Path,
+    directories: dict[str, Path],
+    width: int,
+    height: int,
+    **kwargs: Any,
+) -> None:
     """Process super sampling for a single frame (batch mode)."""
     cv2 = _get_cv2()
     frame_name = frame_file.stem
@@ -308,7 +315,9 @@ def _process_supersample_frame(projector: Any, frame_file: Path, directories: di
         cv2.imwrite(str(directories["supersampled"] / f"{frame_name}.png"), image)
 
 
-def _process_depth_frame(projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any) -> None:
+def _process_depth_frame(
+    projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any
+) -> None:
     """Process depth estimation for a single frame (batch mode)."""
     cv2 = _get_cv2()
     frame_name = frame_file.stem
@@ -335,7 +344,9 @@ def _process_depth_frame(projector: Any, frame_file: Path, directories: dict[str
         cv2.imwrite(str(directories["depth_maps"] / f"{frame_name}.png"), depth_vis)
 
 
-def _process_stereo_frame(projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any) -> None:
+def _process_stereo_frame(
+    projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any
+) -> None:
     """Process stereo generation for a single frame (batch mode)."""
     cv2 = _get_cv2()
     frame_name = frame_file.stem
@@ -367,7 +378,9 @@ def _process_stereo_frame(projector: Any, frame_file: Path, directories: dict[st
         cv2.imwrite(str(directories["right_frames"] / f"{frame_name}.png"), right_img)
 
 
-def _process_fisheye_frame(projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any) -> None:
+def _process_fisheye_frame(
+    projector: Any, frame_file: Path, directories: dict[str, Path], **kwargs: Any
+) -> None:
     """Process fisheye distortion for a single frame (batch mode)."""
     cv2 = _get_cv2()
     frame_name = frame_file.stem
@@ -392,7 +405,13 @@ def _process_fisheye_frame(projector: Any, frame_file: Path, directories: dict[s
         cv2.imwrite(str(directories["right_distorted"] / f"{frame_name}.png"), right_distorted)
 
 
-def _process_vr_assembly_frame(projector: Any, frame_file: Path, directories: dict[str, Path], apply_distortion: bool, **kwargs: Any) -> None:
+def _process_vr_assembly_frame(
+    projector: Any,
+    frame_file: Path,
+    directories: dict[str, Path],
+    apply_distortion: bool,
+    **kwargs: Any,
+) -> None:
     """Process VR assembly for a single frame (batch mode)."""
     cv2 = _get_cv2()
     frame_name = frame_file.stem
